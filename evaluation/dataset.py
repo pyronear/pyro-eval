@@ -2,6 +2,7 @@ import glob
 import hashlib
 import logging
 import os
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -30,6 +31,9 @@ class EvaluationDataset:
         self.build_dataset()
         self.hash = self.compute_hash()
         self.dataset_ID = dataset_ID if dataset_ID else f"dataset_{datetime.now()}_{self.hash}"
+        
+        # Check that all image hashes are unique in the dataset
+        self.check_unique_hashes()
 
     def init_from_hugging_face(self, split="all"):
         """
@@ -61,7 +65,9 @@ class EvaluationDataset:
         In order to init a dataset from a folder, the datapath must point to a folder containing two subfolders : images and labels
         images contains images, and labels contains annotations files names similarly as images with a .txt extension
         """
-
+        if not os.path.isdir(self.datapath):
+            raise FileNotFoundError(f"{self.datapath} is not a directoty.")
+    
         def load_annotation(image_path):
             annotation_file = image_path.replace(".jpg", ".txt")
             if not os.path.isfile(annotation_file):
@@ -185,6 +191,33 @@ class EvaluationDataset:
         hashes = [img.hash for img in self.get_all_images()]
         combined = ''.join(hashes).encode('utf-8')
         return hashlib.sha256(combined).hexdigest()
+
+    def check_unique_hashes(self) -> bool:
+        """
+        Check if all CustomImage instances have unique hashes.
+        If duplicates are found, log the corresponding file paths.
+
+        Returns:
+            True if all hashes are unique, False otherwise.
+        """
+        hash_to_paths = defaultdict(list)
+
+        # defaultdict(list) initialize the entry with {key : []} if key doesn't exist
+        for img in self.images:
+            hash_to_paths[img.hash].append(img.image_path)
+
+        # Check for hash that have several path corresponding
+        duplicates = {h: paths for h, paths in hash_to_paths.items() if len(paths) > 1}
+
+        if duplicates:
+            logging.warning("Duplicate image hashes detected:")
+            for h, paths in duplicates.items():
+                logging.warning(f"Hash {h} found in {len(paths)} files:")
+                for path in paths:
+                    logging.warning(f"  - {path}")
+            return False
+
+        return True
 
     def __len__(self):
         return len(self.dataframe)
