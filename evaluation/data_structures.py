@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 import hashlib
 import logging
 
@@ -5,16 +6,21 @@ from PIL import Image as PILImage
 
 from utils import parse_date_from_filepath
 
+@dataclass
 class CustomImage:
     """
-    Custom image object that gathers data about each image : bytes, annotations, origin session
+    Dataclass for a custom image object that gathers data about each image : bytes, annotations, origin session
     """
-    def __init__(self, image_path, session_id, timedelta, label):
-        self.image_path = image_path
-        self.session_id = session_id
-        self.timestamp = parse_date_from_filepath(image_path)
-        self.timedelta = timedelta
-        self.label = label
+    image_path: str
+    session_id: str
+    timedelta: float
+    label: str
+
+    timestamp: str = field(init=False)
+    hash: str = field(init=False)
+
+    def __post_init__(self):
+        self.timestamp = parse_date_from_filepath(self.image_path)
         self.hash = self.compute_hash()
     
     def load(self) -> PILImage.Image:
