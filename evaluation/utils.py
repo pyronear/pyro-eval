@@ -2,11 +2,16 @@ import datetime
 import re
 import os
 
+EXT = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
+
 def is_image(image_path):
-    return os.path.isfile(image_path) and os.path.splitext(image_path)[-1].lower() in EXT
+    return os.path.isfile(image_path) and has_image_extension(image_path)
 
+def has_image_extension(image_path):
+    return os.path.splitext(image_path)[-1].lower() in EXT
 
-def parse_date_from_filename(filename):
+def parse_date_from_filepath(filepath):
+    filename = os.path.basename(filepath)
     '''Extracts date from filename, typcally : pyronear_sdis-07_brison-200_2024-01-26t11-13-37.jpg'''
     pattern = r'_(\d{4})_(\d{2})_(\d{2})t(\d{2})_(\d{2})_(\d{2})\.(jpg|png)$'
     
@@ -23,7 +28,20 @@ def parse_date_from_filename(filename):
         second = int(match.group(6))
         
         # Create datetime object
-        file_datetime = datetime.datetime(year, month, day, hour, minute, second)
+        file_datetime = datetime(year, month, day, hour, minute, second)
         return file_datetime
     
     return None
+
+def replace_bool_values(data):
+    '''
+    Replace True/False by "true"/"false" to be able to dump a dictionnary in a json file.
+    '''
+    if isinstance(data, dict):
+        return {key: replace_bool_values(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [replace_bool_values(item) for item in data]
+    elif isinstance(data, np.bool_):
+        return "True" if data else "False"
+    else:
+        return data

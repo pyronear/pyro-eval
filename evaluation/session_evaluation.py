@@ -1,29 +1,21 @@
-import glob
 import logging
 import json
 import os
-import re
 
-import numpy as np
 import pandas as pd
-
-from datetime import datetime, timedelta
-
 from PIL import Image
 from tqdm import tqdm 
 
 from pyroengine.engine import Engine
 
-ext = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
-
-def is_image(image_path):
-    return os.path.isfile(image_path) and os.path.splitext(image_path)[-1] in ext
+from utils import is_image, replace_bool_values
 
 def run_engine_session(config, session_name, image_paths, labels):
     """
     Instanciate an Engine and run predictions on a list of images.
     Returns a dataframe containing image info and the confidence predicted
     """
+    # TODO : better handle default values
     pyroEngine = Engine(
         nb_consecutive_frames=config.get("nb_consecutive_frames", 4),
         conf_thresh=config.get("conf_thresh", 0.15),
@@ -49,7 +41,8 @@ def run_engine_session(config, session_name, image_paths, labels):
 
 def run_engine_dataset(image_folder, outpath, dConfig, save_pred=True, resume=True):
     """
-    Functions that process predictions through the Engine on folders of images
+    Function that processes predictions through the Engine on folders of images
+    TODO : rework dConfig system, should not be necessary, adapt to HF datasets
     Args
         image_folder : path toward the input folder, expects two subfolders:
             - fp : folder containing folders of image sequences containing false positive
@@ -117,91 +110,6 @@ def run_engine_dataset(image_folder, outpath, dConfig, save_pred=True, resume=Tr
         if save_pred:
             data.to_csv(outCsv, index=False)
 
-def parse_date_from_filename(filename):
-    '''Extracts date from filename, typcally : pyronear_sdis-07_brison-200_2024-01-26t11-13-37.jpg'''
-    pattern = r'_(\d{4})_(\d{2})_(\d{2})t(\d{2})_(\d{2})_(\d{2})\.(jpg|png)$'
-    
-    # Search for the pattern in the filename
-    match = re.search(pattern, filename.lower())
-    
-    if match:
-        # Extract components
-        year = int(match.group(1))
-        month = int(match.group(2))
-        day = int(match.group(3))
-        hour = int(match.group(4))
-        minute = int(match.group(5))
-        second = int(match.group(6))
-        
-        # Create datetime object
-        file_datetime = datetime(year, month, day, hour, minute, second)
-        return file_datetime
-    
-    return None
-
-def determine_sessions(image_folder, annotation_folder, dataset_name):
-    '''
-    Parse images to detect files belonging to the same session by comparing camera name and capture dates.
-    Works with wildfire2025 and DS_fp formats (expects file named as *_year_month_daythour_)
-    '''
-    image_files = glob.glob(os.path.join(image_folder, '*.jpg'))
-    image_files.sort()
-
-    data = []
-    current_session = None
-    session_images = []
-
-    for image_file in image_files:
-        image_date = parse_date_from_filename(image_file)
-        if not is_image(image_file) or not image_date:
-            continue
-
-        if not current_session:
-            current_session = os.path.splitext(os.path.basename(image_file))[0]
-            session_images = [image_file]
-        else:
-            last_image_date = parse_date_from_filename(session_images[-1])
-            if (image_date - last_image_date) <= timedelta(minutes=30):
-                session_images.append(image_file)
-            else:
-                # More than 30 min between two captures -> Save current session and start a new one
-                for img in session_images:
-                    annotation_file = os.path.join(annotation_folder, os.path.splitext(os.path.basename(img))[0] + '.txt')
-                    if not os.path.isfile(annotation_file):
-                        annotations = ""
-                    else:
-                        with open(annotation_file, 'r') as file:
-                            annotations = file.read()
-                    data.append({
-                        'image': img,
-                        'session': current_session,
-                        'label': annotations,
-                        'original_dataset': dataset_name
-                    })
-                current_session = os.path.splitext(os.path.basename(image_file))[0]
-                session_images = [image_file]
-
-    # Save last session
-    if session_images:
-        for img in session_images:
-            annotation_file = os.path.join(annotation_folder, os.path.splitext(os.path.basename(img))[0] + '.txt')
-            if not os.path.isfile(annotation_file):
-                    annotations = ""
-            else:
-                with open(annotation_file, 'r') as file:
-                    annotations = file.read()
-            data.append({
-                'image': img,
-                'session': current_session,
-                'label': annotations,
-                'original_dataset': dataset_name
-            })
-
-    # Store everything in a csv
-    df = pd.DataFrame(data)
-    output_csv = os.path.join(os.path.dirname(image_folder), f"{os.path.basename(image_folder)}.csv")
-    df.to_csv(output_csv, index=False)
-    print(f"DataFrame saved in {output_csv}")
 
 def concat_preds(datapath):
     '''
@@ -244,18 +152,6 @@ def concat_preds(datapath):
     df_final = df_final[column_order]
     df_final.to_csv(os.path.join(datapath, "merged_preds.csv"), index=False)
 
-def replace_bool_values(data):
-    '''
-    Replace True/False by "true"/"false" to be able to dump a dictionnary in a json file.
-    '''
-    if isinstance(data, dict):
-        return {key: replace_bool_values(value) for key, value in data.items()}
-    elif isinstance(data, list):
-        return [replace_bool_values(item) for item in data]
-    elif isinstance(data, np.bool_):
-        return "True" if data else "False"
-    else:
-        return data
 
 def compute_event_f1_score(tp, fp, fn):
     if tp == 0:
@@ -280,6 +176,7 @@ def compute_accuracy(datapath):
             nb_non_fire += 1
     with open(os.path.join(datapath, "config.json"), 'r') as fp:
         dConfigs = json.load(fp)
+
     for predictionId in predictions:
         results[predictionId] = {
             "details" : {},
@@ -287,10 +184,12 @@ def compute_accuracy(datapath):
             "false_positives" : 0,
             "config" : dConfigs.get(predictionId.split("_")[-1], {}),
         }
+
         for session in set(df["session"].to_list()):
             session_data = df[df["session"] == session]
             label_value = session_data["session_label"].iloc[0]
             prediction_value = session_data[predictionId].any()
+
             if prediction_value != label_value:
                 if label_value:
                     results[predictionId]["missed_detections"] += 1
