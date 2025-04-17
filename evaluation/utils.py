@@ -45,3 +45,10 @@ def replace_bool_values(data):
         return "True" if data else "False"
     else:
         return data
+
+def compute_f1_score(tp, fp, fn):
+    if tp == 0:
+        return 0.0
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    return 2 * (precision * recall) / (precision + recall)

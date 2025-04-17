@@ -1,18 +1,13 @@
-
 from dataset import EvaluationDataset
+from engine_evaluation import EngineEvaluator
+from model_evaluation import ModelEvaluator
 
 class EvaluationPipeline:
-    def __init__(self, dataset, parameters: dict = {}):
+    def __init__(self, dataset, config: dict = {}):
         self.dataset = dataset
-        self.parameters = parameters # Engine config
-        self.results = {}
-        pass
-
-    def model_evaluation(self):
-        pass
-
-    def engine_evaluation(self):
-        pass
+        self.config = config # Engine config
+        self.model_evaluator = ModelEvaluator(dataset, self.config["model_config"])
+        self.engine_evaluator = EngineEvaluator(dataset, self.config["engine_config"])
 
     def run(self):
         self.model_metrics = self.model_evaluation()
