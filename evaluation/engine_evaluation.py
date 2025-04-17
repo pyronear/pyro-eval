@@ -11,42 +11,46 @@ from pyroengine.engine import Engine
 from utils import is_image, replace_bool_values, compute_f1_score
 
 from dataset import EvaluationDataset
+from data_structures import CustomImage, Session
 
 class EngineEvaluator:
     def __init__(self, dataset: EvaluationDataset, config={}):
         self.dataset = dataset
         self.config = config
 
-    def run_engine_session(self, config, session_name, image_paths, labels):
+    def run_engine_session(self, session:Session):
         """
-        Instanciate an Engine and run predictions on a list of images.
+        Instanciate an Engine and run predictions on a Session containing a list of images.
         Returns a dataframe containing image info and the confidence predicted
         """
+        
+        # Initialize a new Engine for each session
         # TODO : better handle default values
         pyroEngine = Engine(
-            nb_consecutive_frames=config.get("nb_consecutive_frames", 4),
-            conf_thresh=config.get("conf_thresh", 0.15),
-            max_bbox_size=config.get("max_bbox_size", 0.4),
-            model_path=config.get("model_path", None)
+            nb_consecutive_frames=self.config.get("nb_consecutive_frames", 4),
+            conf_thresh=self.config.get("conf_thresh", 0.15),
+            max_bbox_size=self.config.get("max_bbox_size", 0.4),
+            model_path=self.config.get("model_path", None)
         )
 
-        session_results = pd.DataFrame(columns=["session", "image", "session_label", "prediction", "conf"])
+        session_results = pd.DataFrame(columns=["session", "image", "session_label", "image_label", "prediction", "conf"])
 
-        for file, label in zip(image_paths, labels):
-            im = Image.open(file)
-            conf = pyroEngine.predict(im)
+        for image in session.images:
+            pil_image = image.load()
+            confidence = pyroEngine.predict(pil_image)
             session_results.loc[len(session_results)] = [
-                session_name,
-                file,
-                label != "fp",
-                conf > pyroEngine.conf_thresh,
-                conf
+                session.session_id,
+                image.image_path,
+                session.label,
+                image.label,
+                confidence > pyroEngine.conf_thresh,
+                confidence
             ]
 
         return session_results
 
 
-    def run_engine_dataset(image_folder, outpath, dConfig, save_pred=True, resume=True):
+    def run_engine_dataset(self, image_folder, outpath, dConfig, save_pred=True, resume=True):
         """
         Function that processes predictions through the Engine on folders of images
         TODO : rework dConfig system, should not be necessary, adapt to HF datasets
@@ -107,7 +111,7 @@ class EngineEvaluator:
                         if is_image(os.path.join(session_folder, file))
                     ]
                     labels = [label for image in image_paths]
-                    session_results = run_engine_session(config, session, image_paths, labels)
+                    session_results = self.run_engine_session(config, session, image_paths, labels)
                     
                     # Add session results to master result file
                     data = pd.concat(data, session_results)

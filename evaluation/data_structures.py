@@ -67,3 +67,8 @@ class Session:
     def __len__(self):
         return len(self.images)
 
+    def __iter__(self):
+        """
+        for image in session: will iterate over CustomImages in self.images
+        """
+        return iter(self.images)
