@@ -219,11 +219,33 @@ class EvaluationDataset:
 
         return True
 
+    def add_session(self, session: Session):
+        self.sessions.append(session)
+
     def __len__(self):
         return len(self.dataframe)
 
     def __iter__(self):
         """
-        Allows to do: for image in dataset: ...
+        Allows to do: for session in dataset: ...
         """
-        return iter(self.get_all_images())
+        return iter(self.sessions)
+
+    def __repr__(self):
+        
+        nb_true_sessions = 0
+        nb_true_images = 0
+        for session in self.sessions:
+            if session.label :
+                nb_true_sessions += 1
+            for image in session.images:
+                if len(image.label) > 0:
+                    nb_true_images += 1
+        nb_images = len(self.get_all_images())
+        repr_str = (
+            f"CustomDataset with {len(self.sessions)} sessions and {nb_images} images.\n"
+            f"Session Labels: {nb_true_sessions} True, {len(self.sessions) - nb_true_images} False\n"
+            f"Image Labels: {nb_true_images} True, {nb_images - nb_true_images} False"
+        )
+
+        return repr_str

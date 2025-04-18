@@ -78,7 +78,7 @@ class EngineEvaluator:
         else:
             data = pd.DataFrame(columns=self.results_data)
 
-        for session in self.dataset.sessions:
+        for session in self.dataset:
             if self.resume and session in set(data["session"].to_list()):
                 logging.info(f"Results of {session} found in predictions csv, session skipped.")
                 continue
