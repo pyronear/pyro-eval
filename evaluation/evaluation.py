@@ -1,6 +1,11 @@
+import logging
+
 from dataset import EvaluationDataset
 from engine_evaluation import EngineEvaluator
 from model_evaluation import ModelEvaluator
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class EvaluationPipeline:
     def __init__(self, dataset, config: dict = {}):

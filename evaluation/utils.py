@@ -1,4 +1,5 @@
 import datetime
+import random
 import re
 import os
 
@@ -52,3 +53,9 @@ def compute_f1_score(tp, fp, fn):
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return 2 * (precision * recall) / (precision + recall)
+
+
+def generate_run_id():
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    rand_suffix = random.randint(1000, 9999)
+    return f"run-{timestamp}-{rand_suffix}"
