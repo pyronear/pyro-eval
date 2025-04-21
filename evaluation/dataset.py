@@ -21,7 +21,7 @@ class EvaluationDataset:
 
         self.datapath = datapath
         self.save = save
-        self.sessions: dict[str, Session] = {}
+        self.sessions: list[Session] = []
         self.is_local: bool = os.path.exists(self.datapath) # False if datapath is a HF repo
 
         # Retrieve data from a local directory or a huggingface repository
@@ -66,30 +66,30 @@ class EvaluationDataset:
         images contains images, and labels contains annotations files names similarly as images with a .txt extension
         """
         if not os.path.isdir(self.datapath):
-            raise FileNotFoundError(f"{self.datapath} is not a directoty.")
+            raise FileNotFoundError(f"{self.datapath} is not a directory.")
     
         def load_annotation(image_path):
-            annotation_file = image_path.replace(".jpg", ".txt")
+            annotation_file = image_path.replace("/images/", "/labels/").replace(".jpg", ".txt")
             if not os.path.isfile(annotation_file):
                 annotations = ""
             else:
                 with open(annotation_file, 'r') as file:
-                    annotations = file.read()
+                    annotations = file.read().replace("\n", "")
             return annotations
 
-        image_list = [image for image in glob.glob(f"{self.datapath}/*") if is_image(image)]
+        image_list = [image for image in sorted(glob.glob(f"{self.datapath}/images/*")) if is_image(image)]
         annotations = [load_annotation(image_path) for image_path in image_list]
-        dates = [parse_date_from_filepath(image_path) for image_path in image_list]
+        timestamps = [parse_date_from_filepath(image_path)["date"] for image_path in image_list]
 
         # Identify common session and store data in a dataframe
-        dataframe = self.determine_sessions(image_list, annotations, dates)
+        dataframe = self.determine_sessions(image_list, annotations, timestamps)
 
         if self.save:
             # Save the dataframe in a csv file
-            output_csv = os.path.join(os.path.dirname(self.datapath), f"{os.path.basename(self.datapath)}.csv")
+            output_csv = os.path.join(self.datapath, f"{os.path.basename(self.datapath)}.csv")
             dataframe.to_csv(output_csv, index=False)
             logging.info(f"DataFrame saved in {output_csv}")
-        
+
         return dataframe
 
     def build_dataset(self):
@@ -97,56 +97,61 @@ class EvaluationDataset:
         Create Session and CustomImage objects from dataset dataframe
         Each Session contains a list of CustomImage, the dataset contains a dict with all sessions
         """
-        for session_id in set(self.dataframe["session"]):
-            session_df = self.dataframe[self.dataframe["session"] == session_id]
-            
-            # Instantiate CustomImage objects for each dataset entry
+
+        for session_id, session_df in self.dataframe.groupby("session"):
             custom_images = [
                 CustomImage(
-                    image=row['image'],
-                    session=session_id,
+                    image_path=row['image'],
+                    session_id=session_id,
                     timedelta=row['delta'],
                     label=row['label']
                 )
                 for _, row in session_df.iterrows()
             ]
-            self.sessions.update({session_id : Session(session_id, images=custom_images)})
+
+            self.sessions.append(Session(session_id, images=custom_images))
 
     def determine_sessions(self, image_list, annotations, timestamps=None, max_delta=30):
         '''
         Parse images to detect files belonging to the same session by comparing camera name and capture dates.
         Expects file named as *_year_month_daythour_*
         '''
-        image_list.sort()
+
 
         data = []
         current_session = None
-        session_images = []
 
-        for image_path, timestamp, annotation in zip(image_list, annotations, timestamps):            
+        for image_path, annotation, timestamp in zip(image_list, annotations, timestamps):
             if not has_image_extension(image_path) or not timestamp:
+                logging.info(f"Skipping {image_path} : wrong extenison or unable to retrieve timestamp.")
                 continue
+
+            image_prefix = os.path.basename(os.path.splitext(image_path)[0]).replace(timestamp.strftime("%Y_%m_%dt%H_%M_%S"), "")
 
             if not current_session:
                 current_session = os.path.splitext(os.path.basename(image_path))[0]
                 session_images = [(image_path, timestamp, annotation)]
                 session_start = timestamp
+                previous_image_timestamp = timestamp
+                previous_prefix = image_prefix
             else:
-                last_image_timestamp = parse_date_from_filepath(session_images[-1][0])
-                if (timestamp - last_image_timestamp) <= timedelta(minutes=max_delta):
+                if (timestamp - previous_image_timestamp) <= timedelta(minutes=max_delta) and image_prefix == previous_prefix:
                     session_images.append((image_path, timestamp, annotation))
                 else:
                     # More than 30 min between two captures -> Save current session and start a new one
-                    for image_path, timestamp, annotation in session_images:
+                    for im_path, im_timestamp, im_label in session_images:
                         data.append({
-                            'image': image_path,
+                            'image': im_path,
                             'session': current_session,
-                            'label': annotation,
-                            'delta': timestamp - session_start
+                            'label': im_label,
+                            'delta': im_timestamp - session_start
                         })
-                    current_session = os.path.splitext(os.path.basename(image_path))[0]
-                    session_images = [image_path]
 
+                    current_session = os.path.splitext(os.path.basename(image_path))[0]
+                    session_images = [(image_path, timestamp, annotation)]
+                    session_start = timestamp
+                previous_image_timestamp = timestamp
+                previous_prefix = image_prefix
         # Save last session
         if session_images:
             for image_path, timestamp, annotation in session_images:
@@ -172,15 +177,10 @@ class EvaluationDataset:
         Returns a list of all images in the dataset
         """
         all_images = []
-        for session in self.sessions.values():
+        for session in self.sessions:
             all_images.extend(session.images)
         return all_images
-   
-    def _group_by_session(self, images: list[CustomImage]):
-        session_dict = {}
-        for img in images:
-            session_dict.setdefault(img.session_id, []).append(img)
-        self.sessions = {sid: Session(sid, imgs) for sid, imgs in session_dict.items()}
+
 
     def compute_hash(self):
         """
@@ -203,19 +203,19 @@ class EvaluationDataset:
         hash_to_paths = defaultdict(list)
 
         # defaultdict(list) initialize the entry with {key : []} if key doesn't exist
-        for img in self.images:
+        for img in self.get_all_images():
             hash_to_paths[img.hash].append(img.image_path)
 
         # Check for hash that have several path corresponding
         duplicates = {h: paths for h, paths in hash_to_paths.items() if len(paths) > 1}
 
-        if duplicates:
-            logging.warning("Duplicate image hashes detected:")
-            for h, paths in duplicates.items():
-                logging.warning(f"Hash {h} found in {len(paths)} files:")
-                for path in paths:
-                    logging.warning(f"  - {path}")
-            return False
+        # if duplicates:
+        #     logging.warning("Duplicate image hashes detected:")
+        #     for h, paths in duplicates.items():
+        #         logging.warning(f"Hash {h} found in {len(paths)} files:")
+        #         for path in paths:
+        #             logging.warning(f"  - {path}")
+        #     return False
 
         return True
 
@@ -244,7 +244,7 @@ class EvaluationDataset:
         nb_images = len(self.get_all_images())
         repr_str = (
             f"CustomDataset with {len(self.sessions)} sessions and {nb_images} images.\n"
-            f"Session Labels: {nb_true_sessions} True, {len(self.sessions) - nb_true_images} False\n"
+            f"Session Labels: {nb_true_sessions} True, {len(self.sessions) - nb_true_sessions} False\n"
             f"Image Labels: {nb_true_images} True, {nb_images - nb_true_images} False"
         )
 

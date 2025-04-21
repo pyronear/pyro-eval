@@ -20,7 +20,7 @@ class CustomImage:
     hash: str = field(init=False)
 
     def __post_init__(self):
-        self.timestamp = parse_date_from_filepath(self.image_path)
+        self.timestamp = parse_date_from_filepath(self.image_path)["date"]
         self.hash = self.compute_hash()
     
     def load(self) -> PILImage.Image:
@@ -47,8 +47,8 @@ class Session:
     """
     def __init__(self, session_id: str, images: list[CustomImage] = []):
         self.session_id = session_id
-        self.session_start = parse_date_from_filepath(session_id)
         self.images = images
+        self.session_start = self.images[0].timestamp
 
     @property
     def label(self):
