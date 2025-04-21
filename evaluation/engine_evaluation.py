@@ -1,11 +1,9 @@
 import logging
 import json
 import os
-import uuid
-from datetime import datetime
 
 import pandas as pd
-from tqdm import tqdm 
+from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 
 from pyroengine.engine import Engine
 
@@ -17,10 +15,10 @@ from data_structures import CustomImage, Session
 class EngineEvaluator:
     def __init__(self,
                  dataset: EvaluationDataset,
-                 config={},
-                 save=False,
-                 run_id = None,
-                 resume = True
+                 config: dict = {},
+                 save: bool = False,
+                 run_id: str = None,
+                 resume : bool = True
                  ):
         self.dataset = dataset
         self.config = config
@@ -74,85 +72,117 @@ class EngineEvaluator:
 
         # Previous predictions are loaded if they exist and if resume is set to True
         if os.path.isfile(self.predictions_csv) and self.resume:
-            data = pd.read_csv(self.predictions_csv)
+            self.predictions_df = pd.read_csv(self.predictions_csv)
         else:
-            data = pd.DataFrame(columns=self.results_data)
+            self.predictions_df = pd.DataFrame(columns=self.results_data)
 
         for session in self.dataset:
-            if self.resume and session in set(data["session"].to_list()):
+            if self.resume and session in set(self.predictions_df["session"].to_list()):
                 logging.info(f"Results of {session} found in predictions csv, session skipped.")
                 continue
             session_results = self.run_engine_session(session)
             
             # Add session results to result dataframe
-            data = pd.concat(data, session_results)
+            self.predictions_df = pd.concat(self.predictions_df, session_results)
             # Checkpoint to save predictions every 50 images
-            if self.save and len(data) % 50 == 0:
-                data.to_csv(self.predictions_csv, index=False)
+            if self.save and len(self.predictions_df) % 50 == 0:
+                self.predictions_df.to_csv(self.predictions_csv, index=False)
 
         if self.save:
-            data.to_csv(self.predictions_csv, index=False)
+            self.predictions_df.to_csv(self.predictions_csv, index=False)
 
-    def compute_metrics(self):
-        # average detection time
-        # TP, FP, TN, FN
-        # Precision, Recall
-        # F1
-        '''
-        Computes metrics on the predictions run, from results stored in the prediction csv.
-        '''
-        results = {}
-        df = pd.read_csv(os.path.join(datapath, "merged_preds.csv")) 
-        predictions = [column for column in df.columns if "prediction_" in column]
-        nb_fire = 0
-        nb_non_fire = 0
-        for session in set(df["session"].to_list()):
-            if df.loc[df["session"] == session, "session_label"].unique()[0] == True:
-                nb_fire += 1
-            else:
-                nb_non_fire += 1
-        with open(os.path.join(datapath, "config.json"), 'r') as fp:
-            dConfigs = json.load(fp)
+    def compute_image_level_metrics(self):
+        """
+        Computes image-based metrics on the predicion dataframes.
+        Those metrics do not take sessions into account.
+        """
+        y_true = self.predictions_df["image_label"].apply(lambda x: x != "")
+        y_pred = self.predictions_df["prediction"]
 
-        for predictionId in predictions:
-            results[predictionId] = {
-                "details" : {},
-                "missed_detections" : 0,
-                "false_positives" : 0,
-                "config" : dConfigs.get(predictionId.split("_")[-1], {}),
-            }
+        precision = precision_score(y_true, y_pred)
+        recall = recall_score(y_true, y_pred)
+        f1 = f1_score(y_true, y_pred)
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
 
-            for session in set(df["session"].to_list()):
-                session_data = df[df["session"] == session]
-                label_value = session_data["session_label"].iloc[0]
-                prediction_value = session_data[predictionId].any()
+        logging.info("Image-level metrics")
+        logging.info(f"Precision : {precision:.3f}")
+        logging.info(f"Recall    : {recall:.3f}")
+        logging.info(f"F1-score  : {f1:.3f}")
+        logging.info(f"TP: {tp}, FP: {fp}, FN: {fn}, TN: {tn}")
 
-                if prediction_value != label_value:
-                    if label_value:
-                        results[predictionId]["missed_detections"] += 1
-                        results[predictionId]["details"].update({session : "Missed detection"})
-                    else:
-                        results[predictionId]["false_positives"] += 1
-                        results[predictionId]["details"].update({session : "False positive"})
-                else:
-                    if label_value:
-                        results[predictionId]["details"].update({session : "Correct : Fire detectedL."})
-                    else:
-                        results[predictionId]["details"].update({session : "Correct : No fire detected."})
+        return {
+            "precision" : precision,
+            "recall" : recall,
+            "f1" : f1,
+            "tn" : tn,
+            "fp" : fp,
+            "fn" : fn,
+            "tp" : tp,
+        }
 
-            results[predictionId]["f1"] = compute_f1_score(
-                tp=nb_fire - results[predictionId]["missed_detections"],
-                fp=results[predictionId]["false_positives"],
-                fn=results[predictionId]["missed_detections"]
-            )
+    def compute_session_level_metrics(self):
+        """
+        Computes session-based metrics from the prediction dataframe
+        """
+        session_metrics = []
 
-            results[predictionId]["missed_detections"] = round(results[predictionId]["missed_detections"]/nb_fire, 2)
-            results[predictionId]["false_positives"] = round(results[predictionId]["false_positives"]/nb_non_fire, 2)
+        for session_id, group in self.predictions_df.groupby("session_id"):
+            session_label = group['session_label'].iloc[0]
+            has_detection = group['prediction'].any()
+            detection_timedeltas = group[group['prediction']]['timedelta']
+            detection_delay = detection_timedeltas.min() if not detection_timedeltas.empty else None
 
-        with open(os.path.join(datapath, "results_merged.json"), 'w') as fp:
-            json.dump(replace_bool_values(results), fp)
+            session_metrics.append({
+                'session_id': session_id,
+                'label': session_label,
+                'has_detection': has_detection,
+                'detection_delay': detection_delay
+            })
 
+        session_df = pd.DataFrame(session_metrics)
+
+        y_true_session = session_df['label']
+        y_pred_session = session_df['has_detection']
+
+        session_precision = precision_score(y_true_session, y_pred_session)
+        session_recall = recall_score(y_true_session, y_pred_session)
+        session_f1 = f1_score(y_true_session, y_pred_session)
+
+        tp_sessions = session_df[(session_df['label'] == True) & (session_df['has_detection'] == True)]
+        fn_sessions = session_df[(session_df['label'] == True) & (session_df['has_detection'] == False)]
+        fp_sessions = session_df[(session_df['label'] == False) & (session_df['has_detection'] == True)]
+        tn_sessions = session_df[(session_df['label'] == False) & (session_df['has_detection'] == False)]
+
+        logging.info("Session-level metrics")
+        logging.info(f"TP: {len(tp_sessions)}")
+        logging.info(f"FP: {len(fp_sessions)}")
+        logging.info(f"FN: {len(fn_sessions)}")
+        logging.info(f"TN: {len(tn_sessions)}")
+        logging.info(f"Precision: {session_precision:.3f}, Recall: {session_recall:.3f}, F1: {session_f1:.3f}")
+
+        if not tp_sessions['detection_delay'].isnull().all():
+            avg_detection_delay = tp_sessions['detection_delay'].dropna().mean()
+            logging.info(f"Avg. delay before detection (TP sessions): {avg_detection_delay}")
+        else:
+            logging.info("No detection delay info available for TP sessions.")
+        
+        return {
+            "precision" : session_precision,
+            "recall" : session_recall,
+            "f1" : session_f1,
+            "tp": len(tp_sessions),
+            "fp": len(fp_sessions),
+            "fn": len(fn_sessions),
+            "tn": len(tn_sessions),
+            "avg_detection_delay": avg_detection_delay if not tp_sessions['detection_delay'].isnull().all() else None
+        }
 
     def evaluate(self):
-        # TODO : add metric detection time (time spent between first image and first detection in a session)
-        pass
+        self.metrics = {
+            "image_metrics" : self.compute_image_level_metrics(),
+            "session_metrics" : self.compute_session_level_metrics(),
+        }
+        
+        if self.save:
+            with open(os.path.join(self.result_dir, "metrics.json"), 'w') as fip:
+                json.dump(replace_bool_values(self.metrics), fip)
