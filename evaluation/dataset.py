@@ -46,11 +46,14 @@ class EvaluationDataset:
 
         api = HfApi()
 
-        dataset_info = api.dataset_info(self.datapath, token=token)
+        # Remove the first part of the url
+        dataset_id = self.datapath.split("/datasets/")[-1]
+        dataset_info = api.dataset_info(dataset_id, token=token)
         if not dataset_info:
             raise ValueError(f"Error : {self.datapath} doesn't exist or is not accessible.")
 
-        hf_dataset = load_dataset(self.datapath, split=split, trust_remote_code=True)
+        # TODO : this needs memory management and optimization
+        hf_dataset = load_dataset(dataset_id, split=split, trust_remote_code=True)
         
         # Retrieve images, annotations and dates as lists
         image_list = [element["image"] for element in hf_dataset]
@@ -209,13 +212,13 @@ class EvaluationDataset:
         # Check for hash that have several path corresponding
         duplicates = {h: paths for h, paths in hash_to_paths.items() if len(paths) > 1}
 
-        # if duplicates:
-        #     logging.warning("Duplicate image hashes detected:")
-        #     for h, paths in duplicates.items():
-        #         logging.warning(f"Hash {h} found in {len(paths)} files:")
-        #         for path in paths:
-        #             logging.warning(f"  - {path}")
-        #     return False
+        if duplicates:
+            logging.warning("Duplicate image hashes detected:")
+            for h, paths in duplicates.items():
+                logging.warning(f"Hash {h} found in {len(paths)} files:")
+                for path in paths:
+                    logging.warning(f"  - {path}")
+            return False
 
         return True
 
