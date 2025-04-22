@@ -24,6 +24,9 @@ class EvaluationDataset:
         self.sessions: list[Session] = []
         self.is_local: bool = os.path.exists(self.datapath) # False if datapath is a HF repo
 
+        if not self.datapath:
+            raise ValueError("No datapath provided to instanciate EvaluationDataset.")
+
         # Retrieve data from a local directory or a huggingface repository
         self.dataframe = self.init_from_folder() if self.is_local else self.init_from_hugging_face()
 
@@ -101,7 +104,7 @@ class EvaluationDataset:
         Each Session contains a list of CustomImage, the dataset contains a dict with all sessions
         """
 
-        for session_id, session_df in self.dataframe.groupby("session"):
+        for session_id, session_df in self.dataframe.groupby("session_id"):
             custom_images = [
                 CustomImage(
                     image_path=row['image'],
@@ -145,7 +148,7 @@ class EvaluationDataset:
                     for im_path, im_timestamp, im_label in session_images:
                         data.append({
                             'image': im_path,
-                            'session': current_session,
+                            'session_id': current_session,
                             'label': im_label,
                             'delta': im_timestamp - session_start
                         })
@@ -160,7 +163,7 @@ class EvaluationDataset:
             for image_path, timestamp, annotation in session_images:
                 data.append({
                     'image': image_path,
-                    'session': current_session,
+                    'session_id': current_session,
                     'label': annotation,
                     'delta': timestamp - session_start
                 })
@@ -172,7 +175,7 @@ class EvaluationDataset:
         """
         Return all images that were captured a the same time
         """
-        session_df = self.dataframe[self.dataframe["session"] == session_id]
+        session_df = self.dataframe[self.dataframe["session_id"] == session_id]
         return session_df["image"].tolist()
 
     def get_all_images(self):

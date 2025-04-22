@@ -1,11 +1,11 @@
-import random
 import re
 import os
 from datetime import datetime
 
+import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
+from pandas import Timedelta
 
 EXT = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
 
@@ -42,48 +42,48 @@ def parse_date_from_filepath(filepath):
 
     return None
 
-def replace_bool_values(data):
+def make_dict_json_compatible(data):
     '''
-    Replace True/False by "true"/"false" to be able to dump a dictionnary in a json file.
+    Replaces values to be able dump a dict in a json:
+        - Replace True/False by "true"/"false"
+        - Convert Timedelta to str
+        - Convert int64 to int
     '''
     if isinstance(data, dict):
-        return {key: replace_bool_values(value) for key, value in data.items()}
+        return {key: make_dict_json_compatible(value) for key, value in data.items()}
     elif isinstance(data, list):
-        return [replace_bool_values(item) for item in data]
+        return [make_dict_json_compatible(item) for item in data]
     elif isinstance(data, np.bool_):
         return "True" if data else "False"
+    elif isinstance(data, Timedelta):
+        # Convertir Timedelta en chaîne de caractères
+        return str(data)
+    elif np.issubdtype(type(data), np.integer):
+        # Convert int64 in native int
+        return int(data)
     else:
         return data
 
-def compute_f1_score(tp, fp, fn):
-    if tp == 0:
-        return 0.0
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    return 2 * (precision * recall) / (precision + recall)
-
-
-def generate_run_id():
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    rand_suffix = random.randint(1000, 9999)
-    return f"run-{timestamp}-{rand_suffix}"
-
 
 def metrics_visualization(metrics, session_df):
-    _ , axes = plt.subplots(1, 2, figsize=(12, 5))
+    _, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     # Image-level confusion matrix
-    sns.heatmap([[metrics["tn"], metrics["fp"]], [metrics["fn"], metrics["tp"]]], annot=True, fmt='d', cmap='Blues', ax=axes[0])
+    confusion_matrix = np.array([[metrics["tn"], metrics["fp"]], [metrics["fn"], metrics["tp"]]])
+    cax = axes[0].matshow(confusion_matrix, cmap='Blues')
     axes[0].set_title('Image Confusion Matrix')
     axes[0].set_xlabel('Predicted')
     axes[0].set_ylabel('Actual')
 
+    # Annotate the confusion matrix
+    for (i, j), val in np.ndenumerate(confusion_matrix):
+        axes[0].text(j, i, f'{val}', ha='center', va='center', color='black')
+
+    plt.colorbar(cax, ax=axes[0])
+
     # Session detection delay histogram
-    sns.histplot(
-        session_df[session_df['label'] & session_df['has_detection']]['detection_delay'].dt.total_seconds(),
-        bins=15,
-        ax=axes[1]
-    )
+    detection_delays = session_df[session_df['label'] & session_df['has_detection']]['detection_delay'].dt.total_seconds()
+    axes[1].hist(detection_delays, bins=15, color='blue', alpha=0.7)
     axes[1].set_title('Detection Delay (Seconds)')
     axes[1].set_xlabel('Seconds since session start')
     axes[1].set_ylabel('Count')
