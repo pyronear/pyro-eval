@@ -1,5 +1,6 @@
 from dataset import EvaluationDataset
-from data_structures import CustomImage
+
+from model import Model
 
 class ModelEvaluator:
     def __init__(self, dataset: EvaluationDataset, config={}, device=None):
@@ -7,10 +8,7 @@ class ModelEvaluator:
         self.config = config
         self.model_path = self.config.get("model_path", None)
         self.inference_params = self.config.get("inference_params", {})
-
-    def inference(self, image: CustomImage):
-        # predict
-        pass
+        self.model = Model(self.model_path, self.inference_params, device)
 
     def evaluate(self):
 
