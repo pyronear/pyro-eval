@@ -51,6 +51,7 @@ class EngineEvaluator:
 
         for image in sequence.images:
             pil_image = image.load()
+            # Run prediction on a single image
             confidence = pyroEngine.predict(pil_image)
             sequence_results.loc[len(sequence_results)] = [
                 sequence.sequence_id,
