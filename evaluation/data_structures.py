@@ -9,10 +9,10 @@ from utils import parse_date_from_filepath
 @dataclass
 class CustomImage:
     """
-    Dataclass for a custom image object that gathers data about each image : bytes, annotations, origin session
+    Dataclass for a custom image object that gathers data about each image : bytes, annotations, origin sequence
     """
     image_path: str
-    session_id: str
+    sequence_id: str
     timedelta: float
     label: str
 
@@ -41,14 +41,14 @@ class CustomImage:
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
-class Session:
+class Sequence:
     """
-    Objects that contains a list of images from a single session
+    Objects that contains a list of images from a single sequence
     """
-    def __init__(self, session_id: str, images: list[CustomImage] = []):
-        self.session_id = session_id
+    def __init__(self, sequence_id: str, images: list[CustomImage] = []):
+        self.sequence_id = sequence_id
         self.images = images
-        self.session_start = self.images[0].timestamp
+        self.sequence_start = self.images[0].timestamp
 
     @property
     def label(self):
@@ -57,18 +57,18 @@ class Session:
         """
         return any(image.label for image in self.images)
 
-    def get_session_label(self):
+    def get_sequence_label(self):
         image_labels = [image.label for image in self.images]
         return any(image_labels)
 
-    def add_image(self, image_path, session_id, timedelta, label):
-        self.images.append(CustomImage(image_path, session_id, timedelta, label))
+    def add_image(self, image_path, sequence_id, timedelta, label):
+        self.images.append(CustomImage(image_path, sequence_id, timedelta, label))
 
     def __len__(self):
         return len(self.images)
 
     def __iter__(self):
         """
-        for image in session: will iterate over CustomImages in self.images
+        for image in sequence: will iterate over CustomImages in self.images
         """
         return iter(self.images)

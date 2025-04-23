@@ -65,7 +65,7 @@ def make_dict_json_compatible(data):
         return data
 
 
-def metrics_visualization(metrics, session_df):
+def metrics_visualization(metrics, sequence_df):
     _, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     # Image-level confusion matrix
@@ -81,11 +81,11 @@ def metrics_visualization(metrics, session_df):
 
     plt.colorbar(cax, ax=axes[0])
 
-    # Session detection delay histogram
-    detection_delays = session_df[session_df['label'] & session_df['has_detection']]['detection_delay'].dt.total_seconds()
+    # Sequence detection delay histogram
+    detection_delays = sequence_df[sequence_df['label'] & sequence_df['has_detection']]['detection_delay'].dt.total_seconds()
     axes[1].hist(detection_delays, bins=15, color='blue', alpha=0.7)
     axes[1].set_title('Detection Delay (Seconds)')
-    axes[1].set_xlabel('Seconds since session start')
+    axes[1].set_xlabel('Seconds since sequence start')
     axes[1].set_ylabel('Count')
 
     plt.tight_layout()

@@ -11,7 +11,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, confusion_m
 from pyroengine.engine import Engine
 
 from dataset import EvaluationDataset
-from data_structures import Session
+from data_structures import Sequence
 from utils import make_dict_json_compatible
 
 class EngineEvaluator:
@@ -29,16 +29,16 @@ class EngineEvaluator:
         self.save = save # If save is True we regularly dump results and the config used
         self.run_id = run_id if len(run_id) > 0 else self.generate_run_id()
         self.resume = resume # If True, we look for partial results in results/<run_id>
-        self.results_data = ["session_id", "image", "session_label", "image_label", "prediction", "conf", "timedelta"]
+        self.results_data = ["sequence_id", "image", "sequence_label", "image_label", "prediction", "conf", "timedelta"]
         self.predictions_csv = ""
 
-    def run_engine_session(self, session:Session):
+    def run_engine_sequence(self, sequence:Sequence):
         """
-        Instanciate an Engine and run predictions on a Session containing a list of images.
+        Instanciate an Engine and run predictions on a Sequence containing a list of images.
         Returns a dataframe containing image info and the confidence predicted
         """
         
-        # Initialize a new Engine for each session
+        # Initialize a new Engine for each sequence
         # TODO : better handle default values
         pyroEngine = Engine(
             nb_consecutive_frames=self.config.get("nb_consecutive_frames", 4),
@@ -47,26 +47,26 @@ class EngineEvaluator:
             model_path=self.config.get("model_path", None)
         )
 
-        session_results = pd.DataFrame(columns=self.results_data)
+        sequence_results = pd.DataFrame(columns=self.results_data)
 
-        for image in session.images:
+        for image in sequence.images:
             pil_image = image.load()
             confidence = pyroEngine.predict(pil_image)
-            session_results.loc[len(session_results)] = [
-                session.session_id,
+            sequence_results.loc[len(sequence_results)] = [
+                sequence.sequence_id,
                 image.image_path,
-                session.label,
+                sequence.label,
                 image.label,
                 confidence > pyroEngine.conf_thresh,
                 confidence,
                 image.timedelta
             ]
 
-        return session_results
+        return sequence_results
 
     def run_engine_dataset(self):
         """
-        Function that processes predictions through the Engine on sessions of images
+        Function that processes predictions through the Engine on sequences of images
         """
 
         if self.save:
@@ -83,14 +83,14 @@ class EngineEvaluator:
         else:
             self.predictions_df = pd.DataFrame(columns=self.results_data)
 
-        for session in self.dataset:
-            if self.resume and session in set(self.predictions_df["session_id"].to_list()):
-                logging.info(f"Results of {session} found in predictions csv, session skipped.")
+        for sequence in self.dataset:
+            if self.resume and sequence in set(self.predictions_df["sequence_id"].to_list()):
+                logging.info(f"Results of {sequence} found in predictions csv, sequence skipped.")
                 continue
-            session_results = self.run_engine_session(session)
+            sequence_results = self.run_engine_sequence(sequence)
             
-            # Add session results to result dataframe
-            self.predictions_df = pd.concat([self.predictions_df, session_results])
+            # Add sequence results to result dataframe
+            self.predictions_df = pd.concat([self.predictions_df, sequence_results])
             # Checkpoint to save predictions every 50 images
             if self.save and len(self.predictions_df) % 50 == 0:
                 self.predictions_df.to_csv(self.predictions_csv, index=False)
@@ -102,7 +102,7 @@ class EngineEvaluator:
     def compute_image_level_metrics(self):
         """
         Computes image-based metrics on the predicion dataframes.
-        Those metrics do not take sessions into account.
+        Those metrics do not take sequences into account.
         """
         y_true = self.predictions_df["image_label"].apply(lambda x: x != "")
         y_pred = self.predictions_df["prediction"]
@@ -126,14 +126,14 @@ class EngineEvaluator:
             "tp" : tp,
         }
 
-    def compute_session_level_metrics(self):
+    def compute_sequence_level_metrics(self):
         """
-        Computes session-based metrics from the prediction dataframe
+        Computes sequence-based metrics from the prediction dataframe
         """
-        session_metrics = []
+        sequence_metrics = []
 
-        for session_id, group in self.predictions_df.groupby("session_id"):
-            session_label = group['session_label'].iloc[0]
+        for sequence_id, group in self.predictions_df.groupby("sequence_id"):
+            sequence_label = group['sequence_label'].iloc[0]
             has_detection = group['prediction'].any()
             detection_timedeltas = group[group['prediction']]['timedelta']
             detection_timedeltas = pd.to_timedelta(detection_timedeltas, errors='coerce')
@@ -144,58 +144,58 @@ class EngineEvaluator:
             else:
                 detection_delay = None
 
-            session_metrics.append({
-                'session_id': session_id,
-                'label': session_label,
+            sequence_metrics.append({
+                'sequence_id': sequence_id,
+                'label': sequence_label,
                 'has_detection': has_detection,
                 'detection_delay': detection_delay
             })
 
-        session_df = pd.DataFrame(session_metrics)
+        sequence_df = pd.DataFrame(sequence_metrics)
 
-        y_true_session = session_df['label']
-        y_pred_session = session_df['has_detection']
+        y_true_sequence = sequence_df['label']
+        y_pred_sequence = sequence_df['has_detection']
 
-        session_precision = precision_score(y_true_session, y_pred_session)
-        session_recall = recall_score(y_true_session, y_pred_session)
-        session_f1 = f1_score(y_true_session, y_pred_session)
+        sequence_precision = precision_score(y_true_sequence, y_pred_sequence)
+        sequence_recall = recall_score(y_true_sequence, y_pred_sequence)
+        sequence_f1 = f1_score(y_true_sequence, y_pred_sequence)
 
-        tp_sessions = session_df[(session_df['label'] == True) & (session_df['has_detection'] == True)]
-        fn_sessions = session_df[(session_df['label'] == True) & (session_df['has_detection'] == False)]
-        fp_sessions = session_df[(session_df['label'] == False) & (session_df['has_detection'] == True)]
-        tn_sessions = session_df[(session_df['label'] == False) & (session_df['has_detection'] == False)]
+        tp_sequences = sequence_df[(sequence_df['label'] == True) & (sequence_df['has_detection'] == True)]
+        fn_sequences = sequence_df[(sequence_df['label'] == True) & (sequence_df['has_detection'] == False)]
+        fp_sequences = sequence_df[(sequence_df['label'] == False) & (sequence_df['has_detection'] == True)]
+        tn_sequences = sequence_df[(sequence_df['label'] == False) & (sequence_df['has_detection'] == False)]
 
-        logging.info("Session-level metrics")
-        logging.info(f"Precision: {session_precision:.3f}, Recall: {session_recall:.3f}, F1: {session_f1:.3f}")
-        logging.info(f"TP: {len(tp_sessions)}, FP: {len(fp_sessions)}, FN: {len(fn_sessions)}, TN: {len(tn_sessions)}")
+        logging.info("Sequence-level metrics")
+        logging.info(f"Precision: {sequence_precision:.3f}, Recall: {sequence_recall:.3f}, F1: {sequence_f1:.3f}")
+        logging.info(f"TP: {len(tp_sequences)}, FP: {len(fp_sequences)}, FN: {len(fn_sequences)}, TN: {len(tn_sequences)}")
 
-        if not tp_sessions['detection_delay'].isnull().all():
-            avg_detection_delay = tp_sessions['detection_delay'].dropna().mean()
-            logging.info(f"Avg. delay before detection (TP sessions): {avg_detection_delay}")
+        if not tp_sequences['detection_delay'].isnull().all():
+            avg_detection_delay = tp_sequences['detection_delay'].dropna().mean()
+            logging.info(f"Avg. delay before detection (TP sequences): {avg_detection_delay}")
         else:
-            logging.info("No detection delay info available for TP sessions.")
+            logging.info("No detection delay info available for TP sequences.")
         
         return {
-            "precision" : session_precision,
-            "recall" : session_recall,
-            "f1" : session_f1,
-            "tp": len(tp_sessions),
-            "fp": len(fp_sessions),
-            "fn": len(fn_sessions),
-            "tn": len(tn_sessions),
-            "avg_detection_delay": avg_detection_delay if not tp_sessions['detection_delay'].isnull().all() else None
+            "precision" : sequence_precision,
+            "recall" : sequence_recall,
+            "f1" : sequence_f1,
+            "tp": len(tp_sequences),
+            "fp": len(fp_sequences),
+            "fn": len(fn_sequences),
+            "tn": len(tn_sequences),
+            "avg_detection_delay": avg_detection_delay if not tp_sequences['detection_delay'].isnull().all() else None
         }
 
     def evaluate(self):
 
-        # Run Engine predictions on each session of the dataset
+        # Run Engine predictions on each sequence of the dataset
         self.run_engine_dataset()
 
         # Compute metrics from predictions
         self.metrics = {
             "run_id" : self.run_id,
             "image_metrics" : self.compute_image_level_metrics(),
-            "session_metrics" : self.compute_session_level_metrics(),
+            "sequence_metrics" : self.compute_sequence_level_metrics(),
         }
 
         # Save metrics in a json file
