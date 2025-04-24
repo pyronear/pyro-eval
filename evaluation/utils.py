@@ -64,7 +64,6 @@ def make_dict_json_compatible(data):
     else:
         return data
 
-
 def metrics_visualization(metrics, sequence_df):
     _, axes = plt.subplots(1, 2, figsize=(12, 5))
 
@@ -90,3 +89,74 @@ def metrics_visualization(metrics, sequence_df):
 
     plt.tight_layout()
     plt.show()
+
+def xywh2xyxy(x):
+    """Function to convert bounding box format from center to top-left corner"""
+    y = np.zeros_like(x)
+    y[0] = x[0] - x[2] / 2  # x_min
+    y[1] = x[1] - x[3] / 2  # y_min
+    y[2] = x[0] + x[2] / 2  # x_max
+    y[3] = x[1] + x[3] / 2  # y_max
+    return y
+
+
+def box_iou(box1: np.ndarray, box2: np.ndarray, eps: float = 1e-7):
+    """
+    Calculate intersection-over-union (IoU) of boxes.
+    Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
+    Based on https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
+
+    Args:
+        box1 (np.ndarray): A numpy array of shape (N, 4) representing N bounding boxes.
+        box2 (np.ndarray): A numpy array of shape (M, 4) representing M bounding boxes.
+        eps (float, optional): A small value to avoid division by zero. Defaults to 1e-7.
+
+    Returns:
+        (np.ndarray): An NxM numpy array containing the pairwise IoU values for every element in box1 and box2.
+    """
+
+    # Ensure box1 and box2 are in the shape (N, 4) even if N is 1
+    if box1.ndim == 1:
+        box1 = box1.reshape(1, 4)
+    if box2.ndim == 1:
+        box2 = box2.reshape(1, 4)
+
+    (a1, a2), (b1, b2) = np.split(box1, 2, 1), np.split(box2, 2, 1)
+    inter = (
+        (np.minimum(a2, b2[:, None, :]) - np.maximum(a1, b1[:, None, :]))
+        .clip(0)
+        .prod(2)
+    )
+
+    # IoU = inter / (area1 + area2 - inter)
+    return inter / ((a2 - a1).prod(1) + (b2 - b1).prod(1)[:, None] - inter + eps)
+
+def find_matches(gt_boxes, pred_boxes, iou):
+    """
+    Given a list of ground truth boxes, predicted boxes and a threshold iou, computes matches and
+    returns the number of true positives, false positives and false negatives.
+    """
+    nb_fp, nb_tp, nb_fn = 0, 0, 0
+    gt_matches = np.zeros(len(gt_boxes), dtype=bool)
+
+    # For each prediciton, we check whether we find one or several overlapping ground truth box
+    for pred_box in pred_boxes:
+        if gt_boxes:
+            # Compute matches
+            matches = np.array([box_iou(pred_box, gt_box) > iou for gt_box in gt_boxes], dtype=bool)
+
+            # Check if any match exists
+            if matches.any():
+                nb_tp += 1
+                matches = matches.reshape(gt_matches.shape)
+                # Logical OR operation in order to update gt_matches with new matches (new True value in the array)
+                gt_matches = np.logical_or(gt_matches, matches)  
+            else:
+                nb_fp += 1
+        else:
+            nb_fp += 1
+
+    if gt_boxes:
+        nb_fn += len(gt_boxes) - np.sum(gt_matches)
+    
+    return (nb_fp, nb_tp, nb_fn)

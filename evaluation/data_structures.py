@@ -1,10 +1,11 @@
-from dataclasses import dataclass, field
 import hashlib
 import logging
+from dataclasses import dataclass, field
 
+import numpy as np
 from PIL import Image as PILImage
 
-from utils import parse_date_from_filepath
+from utils import parse_date_from_filepath, xywh2xyxy
 
 @dataclass
 class CustomImage:
@@ -18,6 +19,7 @@ class CustomImage:
 
     timestamp: str = field(init=False)
     hash: str = field(init=False)
+    prediction : str = field(None)
 
     def __post_init__(self):
         self.timestamp = parse_date_from_filepath(self.image_path)["date"]
@@ -40,6 +42,16 @@ class CustomImage:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
+
+    @property
+    def label_xyxy(self):
+        """
+        Returns a numpy array containing bounding boxes coordinates in xyxy format.
+        """
+        # Remove trailing \n, whitespaces, first value of the predicted array (class id) for each box
+        boxes = [np.array(line.strip().split(" ")[1:5]) for line in self.label]
+        # Translate into xyxy coordinates and return
+        return [xywh2xyxy(box) for box in boxes]
 
 class Sequence:
     """
