@@ -19,7 +19,7 @@ class CustomImage:
 
     timestamp: str = field(init=False)
     hash: str = field(init=False)
-    prediction : str = field(None)
+    prediction : str = field(init=None)
 
     def __post_init__(self):
         self.timestamp = parse_date_from_filepath(self.image_path)["date"]

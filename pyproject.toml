@@ -18,6 +18,8 @@ pandas = "2.2.3"
 python = ">=3.10,<4.0"
 pyroengine = { git = "https://github.com/pyronear/pyro-engine.git", rev = "main"}
 scikit-learn = "1.6.1"
+torchvision = "0.21.0"
+ultralytics = "8.3.75"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^5.3.2"

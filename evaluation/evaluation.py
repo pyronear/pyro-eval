@@ -30,11 +30,11 @@ class EvaluationPipeline:
         self.metrics = {}
 
         # Evaluate the model performance on single images
-        self.model_evaluator = ModelEvaluator(dataset, self.config.get("model_config", {}), device)
+        self.model_evaluator = ModelEvaluator(dataset, self.config, device)
         
         # Evaluate the engine performance on series of images
         self.engine_evaluator = EngineEvaluator(dataset,
-                                                config=self.config.get("engine_config", {}),
+                                                config=self.config,
                                                 save=self.save,
                                                 run_id=self.run_id,
                                                 resume=self.resume)
@@ -69,9 +69,12 @@ if __name__ == "__main__":
     # Usage example
     
     # Instanciate Dataset
-    dataset_path = "" # Folders with two sub-folders : images and labels
+    dataset_path = "/Users/theocayla/Documents/Dev/Pyronear/data/test_very_small" # Folders with two sub-folders : images and labels
     dataset = EvaluationDataset(datapath=dataset_path)
 
     # Launch Evaluation
-    evaluation = EvaluationPipeline(dataset=dataset, save=True, device="mps")
+    config = {
+        "model_path" : "/Users/theocayla/Documents/Dev/Pyronear/models/250318_yolo11/yolov11s.pt"
+    }
+    evaluation = EvaluationPipeline(dataset=dataset, config=config, save=True, device="mps")
     evaluation.run()
