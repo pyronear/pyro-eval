@@ -21,7 +21,7 @@ class EngineEvaluator:
                  dataset: EvaluationDataset,
                  config: dict = {},
                  save: bool = False,
-                 run_id: str = "",
+                 run_id: str = None,
                  resume : bool = True
                  ):
         self.dataset = dataset
@@ -201,7 +201,7 @@ class EngineEvaluator:
 
         # Save metrics in a json file
         if self.save:
-            with open(os.path.join(self.result_dir, "metrics.json"), 'w') as fip:
+            with open(os.path.join(self.result_dir, "engine_metrics.json"), 'w') as fip:
                 json.dump(make_dict_json_compatible(self.metrics), fip)
     
     def generate_run_id(self):

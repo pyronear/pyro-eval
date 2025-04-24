@@ -26,16 +26,16 @@ class Model:
 
         if os.path.isfile(self.model_path):
             # Local file, .onnx format
-            if os.path.splitext(self.model_path)[-1] == ".onnx":
+            if self.model_path.endswith(".onnx"):
                 self.load_onnx()
 
             # Local file, .pt format
-            if os.path.splitext(self.model_path)[-1] == ".pt":
+            if self.model_path.endswith(".pt"):
                 self.format = "pt"
                 return YOLO(self.model_path)
 
         else:
-            # File doesn't exist, check for a HuggingFace repo - TODO : decide HF models path would be provided
+            # File doesn't exist, check for a HuggingFace repo - TODO : decide how HF models path should be provided
             if "huggingface.co" in self.model_path:
                 self.load_HF()
 
@@ -60,7 +60,7 @@ class Model:
         """
         Loads model from an HuggingFace repo
         """
-        token = HfFolder.get_token()
+        token = os.getenv("HF_TOKEN") or HfFolder.get_token()
         repo_id = self.model_path.split("https://huggingface.co/")[-1]
         filename = f"{os.path.basename(repo_id)}.pt"
         if token is None:
@@ -74,7 +74,7 @@ class Model:
         api = HfApi()
         # Remove the first part of the url
         
-        model_info = api.dataset_info(repo_id, token=token)
+        model_info = api.model_info(repo_id, token=token)
         if not model_info:
             raise ValueError(f"Error : {self.model_path} doesn't exist or is not accessible.")
 
@@ -110,21 +110,23 @@ class Model:
 
         if self.format == "onnx":
             try:
-                results = self.ort_session.run(["output0"], {"images": pil_image})[0][0]
+                prediction = self.model.run(["output0"], {"images": pil_image})[0][0]
+                # TODO : check format of prediction and reformat to xyxy if necessary
             except Exception as e:
                 logging.error(f"Onnx inference failed on {image.image_path} : {e}")
-                results = np.nan
+                prediction = np.nan
         else:
             try:
-                results = self.model.predict(
+                boxes = self.model.predict(
                     source=pil_image,
                     conf=self.inference_params["conf"],
                     iou=self.inference_params["iou"],
                     imgsz=self.inference_params["imgsz"],
                     device=self.device
                 )[0]
+                prediction = boxes.xyxy.cpu().numpy()
             except Exception as e:
                 logging.error(f"Inference failed on {image.image_path} : {e}")
-                results = np.nan
-        
-        return results
+                prediction = np.nan
+
+        return prediction

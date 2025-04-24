@@ -1,8 +1,6 @@
-import numpy as np
-
 from dataset import EvaluationDataset
 from model import Model
-from utils import box_iou, find_matches
+from utils import find_matches
 
 class ModelEvaluator:
     def __init__(self, dataset: EvaluationDataset, config={}, device=None):
@@ -23,7 +21,7 @@ class ModelEvaluator:
         for image in images:
             image.prediction = self.model.inference(image)
 
-    def evaluate_predictions(self):
+    def evaluate(self):
         """
         Compares predictions and labels to evaluate the model performance on the dataset
         """
