@@ -75,13 +75,18 @@ class EvaluationDataset:
             raise FileNotFoundError(f"{self.datapath} is not a directory.")
     
         def load_annotation(image_path):
+            """
+            Loads boxes coordinnates from a txt file.
+            """
             annotation_file = image_path.replace("/images/", "/labels/").replace(".jpg", ".txt")
             if not os.path.isfile(annotation_file):
-                annotations = ""
+                boxes = []
             else:
                 with open(annotation_file, 'r') as file:
-                    annotations = file.read().replace("\n", "")
-            return annotations
+                    boxes = file.read().split("\n")
+                    boxes = [box for box in boxes if len(box) > 0]
+
+            return boxes
 
         image_list = [image for image in sorted(glob.glob(f"{self.datapath}/images/*")) if is_image(image)]
         annotations = [load_annotation(image_path) for image_path in image_list]
@@ -122,7 +127,6 @@ class EvaluationDataset:
         Parse images to detect files belonging to the same sequence by comparing camera name and capture dates.
         Expects file named as *_year_month_daythour_*
         '''
-
 
         data = []
         current_sequence = None
