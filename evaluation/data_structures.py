@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from dataclasses import dataclass, field
+from typing import Optional
 
 import numpy as np
 from PIL import Image as PILImage
@@ -19,7 +20,7 @@ class CustomImage:
 
     timestamp: str = field(init=False)
     hash: str = field(init=False)
-    prediction : str = field(init=None)
+    prediction: Optional[str] = field(default=None)
 
     def __post_init__(self):
         self.timestamp = parse_date_from_filepath(self.image_path)["date"]
@@ -49,7 +50,7 @@ class CustomImage:
         Returns a numpy array containing bounding boxes coordinates in xyxy format.
         """
         # Remove trailing \n, whitespaces, first value of the predicted array (class id) for each box
-        boxes = [np.array(line.strip().split(" ")[1:5]) for line in self.label]
+        boxes = [np.array(box.strip().split(" ")[1:5]).astype(float) for box in self.label]
         # Translate into xyxy coordinates and return
         return [xywh2xyxy(box) for box in boxes]
 
