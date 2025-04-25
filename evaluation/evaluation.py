@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import random
 from datetime import datetime
 from typing import List
@@ -44,17 +45,51 @@ class EvaluationPipeline:
             self.metrics["model_metrics"] = self.model_evaluator.evaluate()
             logging.info
         if "engine" in self.eval:
-            self.metrics["engine_metrics"] = self.engine_evaluator.evaluate()
+            if self.config.get("model_path", "").endswith(".onnx"):
+                self.metrics["engine_metrics"] = self.engine_evaluator.evaluate()
+            else:
+                logging.info("Need to provide an .onnx model to perform the Engine evaluation")
+        
+        self.display_metrics()
+
+        if self.save:
+            self.save_metrics()
 
     def save_metrics(self):
         """
         SAve results in a json file
         """
         result_file = f"data/results/{self.run_id}/metrics.json"
+        os.makedirs(os.path.dirname(result_file), exist_ok=True)
         logging.info(f"Saving metrics in {result_file}")
 
-        with open(self.result_file, 'w') as fp:
+        with open(result_file, 'w') as fp:
             json.dump(self.metrics, fp)
+
+    def display_metrics(self):
+        def format_metric(value):
+            return f"{value:.2f}" if isinstance(value, (int, float)) else "N/A"
+
+        model_metrics = self.metrics.get("model_metrics", {})
+
+        logging.info("Model Metrics:")
+        logging.info(f"  Precision: {format_metric(model_metrics.get('precision', 'N/A'))}")
+        logging.info(f"  Recall:    {format_metric(model_metrics.get('recall', 'N/A'))}")
+        logging.info(f"  F1 Score:  {format_metric(model_metrics.get('f1_score', 'N/A'))}")
+
+        engine_image_metrics = self.metrics.get("engine_metrics", {}).get("image_metrics", {})
+        engine_sequence_metrics = self.metrics.get("engine_metrics", {}).get("sequence_metrics", {})
+
+        logging.info("Engine Metrics:")
+        logging.info("    Image Metrics:")
+        logging.info(f"     Precision: {format_metric(engine_image_metrics.get('precision', 'N/A'))}")
+        logging.info(f"     Recall:    {format_metric(engine_image_metrics.get('recall', 'N/A'))}")
+        logging.info(f"     F1 Score:  {format_metric(engine_image_metrics.get('f1_score', 'N/A'))}")
+        logging.info("    Sequence Metrics:")
+        logging.info(f"     Precision: {format_metric(engine_sequence_metrics.get('precision', 'N/A'))}")
+        logging.info(f"     Recall:    {format_metric(engine_sequence_metrics.get('recall', 'N/A'))}")
+        logging.info(f"     F1 Score:  {format_metric(engine_sequence_metrics.get('f1_score', 'N/A'))}")
+        logging.info(f"     Averagde Detecion Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}")
 
     def generate_run_id(self):
         """
@@ -69,7 +104,7 @@ if __name__ == "__main__":
     # Usage example
     
     # Instanciate Dataset
-    dataset_path = "/Users/theocayla/Documents/Dev/Pyronear/data/test_very_small" # Folders with two sub-folders : images and labels
+    dataset_path = "" # Folders with two sub-folders : images and labels
     dataset = EvaluationDataset(datapath=dataset_path)
 
     # Launch Evaluation
