@@ -24,6 +24,7 @@ class Model:
         if not self.model_path:
             raise ValueError(f"No model provided for evaluation, path needs to be specified.")
 
+        logging.info(f"Loading model : {self.model_path}")
         if os.path.isfile(self.model_path):
             # Local file, .onnx format
             if self.model_path.endswith(".onnx"):
@@ -117,14 +118,15 @@ class Model:
                 prediction = np.nan
         else:
             try:
-                boxes = self.model.predict(
+                results = self.model.predict(
                     source=pil_image,
                     conf=self.inference_params["conf"],
                     iou=self.inference_params["iou"],
                     imgsz=self.inference_params["imgsz"],
                     device=self.device
                 )[0]
-                prediction = boxes.xyxy.cpu().numpy()
+
+                prediction = results.boxes.xyxyn.cpu().numpy()
             except Exception as e:
                 logging.error(f"Inference failed on {image.image_path} : {e}")
                 prediction = np.nan

@@ -25,13 +25,14 @@ class ModelEvaluator:
         """
         Compares predictions and labels to evaluate the model performance on the dataset
         """
+        self.run_predictions()
+
         nb_fp, nb_tp, nb_fn = 0, 0, 0
         for image  in self.images:
             # Labels
             gt_boxes = image.label_xyxy
             # Predictions
             pred_boxes = image.prediction
-            
             fp, tp, fn = find_matches(gt_boxes, pred_boxes, self.config.get("iou", 0.1))
 
             nb_fp += fp
