@@ -12,7 +12,7 @@ from pyroengine.engine import Engine
 
 from dataset import EvaluationDataset
 from data_structures import Sequence
-from utils import make_dict_json_compatible
+from utils import make_dict_json_compatible, export_model, delete_tmp_model
 
 class EngineEvaluator:
     # TODO : as EngineEvaluator and ModelEvaluator share some attributes and methods the should inherits from an EvaluatorClass
@@ -40,28 +40,41 @@ class EngineEvaluator:
         
         # Initialize a new Engine for each sequence
         # TODO : better handle default values
-        pyroEngine = Engine(
-            nb_consecutive_frames=self.config.get("nb_consecutive_frames", 4),
-            conf_thresh=self.config.get("conf_thresh", 0.15),
-            max_bbox_size=self.config.get("max_bbox_size", 0.4),
-            model_path=self.config.get("model_path", None)
-        )
+        
+        model_path = self.config.get("model_path", None)
+        needs_deletion  = False
 
-        sequence_results = pd.DataFrame(columns=self.results_data)
+        # We need to convert .pt local paths to .onnx as that's the only format supported by the engine
+        if model_path.endswith(".pt"):
+            model_path = export_model(model_path)
+            needs_deletion = True
 
-        for image in sequence.images:
-            pil_image = image.load()
-            # Run prediction on a single image
-            confidence = pyroEngine.predict(pil_image)
-            sequence_results.loc[len(sequence_results)] = [
-                sequence.sequence_id,
-                image.image_path,
-                sequence.label,
-                image.label,
-                confidence > pyroEngine.conf_thresh,
-                confidence,
-                image.timedelta
-            ]
+        try:
+            pyroEngine = Engine(
+                nb_consecutive_frames=self.config.get("nb_consecutive_frames", 4),
+                conf_thresh=self.config.get("conf_thresh", 0.15),
+                max_bbox_size=self.config.get("max_bbox_size", 0.4),
+                model_path=self.config.get("model_path", None)
+            )
+
+            sequence_results = pd.DataFrame(columns=self.results_data)
+
+            for image in sequence.images:
+                pil_image = image.load()
+                # Run prediction on a single image
+                confidence = pyroEngine.predict(pil_image)
+                sequence_results.loc[len(sequence_results)] = [
+                    sequence.sequence_id,
+                    image.image_path,
+                    sequence.label,
+                    image.label,
+                    confidence > pyroEngine.conf_thresh,
+                    confidence,
+                    image.timedelta
+                ]
+        finally:
+            if needs_deletion:
+                delete_tmp_model(model_path)
 
         return sequence_results
 

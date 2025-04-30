@@ -1,11 +1,14 @@
 import re
 import os
+import shutil
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 from pandas import Timedelta
+from ultralytics import YOLO
 
 EXT = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
 
@@ -160,3 +163,22 @@ def find_matches(gt_boxes, pred_boxes, iou):
         nb_fn += len(gt_boxes) - np.sum(gt_matches)
     
     return (nb_fp, nb_tp, nb_fn)
+
+def export_model(model_path: str):
+    """
+    Engine needs an onnx model to be instanciated, this methods creates a .onnx file from the .pt path
+    """
+    tmp_dir = Path(tempfile.mkdtemp())
+    onnx_path = tmp_dir / "tmp_model.onnx"
+
+    model = YOLO(model_path)
+    model.export(format="onnx", dynamic=True, export_path=str(onnx_path))
+    return onnx_path
+
+def delete_tmp_model(filepath: str):
+    """
+    Removes temporary folder
+    """
+    tmp_folder = Path(filepath).parent
+    shutil.rmtree(tmp_folder)   
+    
