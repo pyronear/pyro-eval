@@ -17,10 +17,9 @@ class EvaluationDataset:
     Class that contains a dataset and metadata. 
     It can be instantiated either with a local image folder or a hugging face repo
     """
-    def __init__(self, datapath, save=False, dataset_ID=None):
+    def __init__(self, datapath, dataset_ID=None):
 
         self.datapath = datapath
-        self.save = save
         self.sequences: list[Sequence] = []
         self.is_local: bool = os.path.exists(self.datapath) # False if datapath is a HF repo
 
@@ -34,6 +33,8 @@ class EvaluationDataset:
         self.build_dataset()
         self.hash = self.compute_hash()
         self.dataset_ID = dataset_ID if dataset_ID else f"dataset_{datetime.now()}_{self.hash}"
+
+        self.dataframe = self.get_sequence_label()
         
         # Check that all image hashes are unique in the dataset
         self.check_unique_hashes()
@@ -108,12 +109,6 @@ class EvaluationDataset:
 
         # Identify common sequence and store data in a dataframe
         dataframe = self.determine_sequences(image_list, annotations, timestamps)
-
-        if self.save:
-            # Save the dataframe in a csv file
-            output_csv = os.path.join(self.datapath, f"{os.path.basename(self.datapath)}.csv")
-            dataframe.to_csv(output_csv, index=False)
-            logging.info(f"DataFrame saved in {output_csv}")
 
         return dataframe
 
@@ -191,6 +186,16 @@ class EvaluationDataset:
         df = pd.DataFrame(data)
         return df
 
+    def get_sequence_label(self):
+        """
+        Add a column with sequence label to the existing dataframe
+        """
+        self.dataframe["sequence_label"] = [""] * len(self.dataframe)
+        for sequence in self.sequences:
+            for image in sequence.images:
+                self.dataframe.loc[self.dataframe["image"] == image.image_path, "sequence_label"] = sequence.label
+        return self.dataframe
+
     def get_images_from_sequence(self, sequence_id):
         """
         Return all images that were captured a the same time
@@ -248,27 +253,10 @@ class EvaluationDataset:
     def add_sequence(self, sequence: Sequence):
         self.sequences.append(sequence)
 
-    def __len__(self):
-        return len(self.dataframe)
-
-    def __iter__(self):
-        """
-        Allows to do: for sequence in dataset: ...
-        """
-        return iter(self.sequences)
-
-    def __repr__(self):
-        stats = self.compute_dataset_statistics()
-        repr_str = (
-            f"CustomDataset with {len(self.sequences)} sequences and {stats.get('nb_images', 'N/A')} images.\n"
-            f"Sequence Labels: {stats.get('nb_true_sequences', 'N/A')} True, {len(self.sequences) - stats.get('nb_true_sequences', 'N/A')} False\n"
-            f"Image Labels: {stats.get('nb_true_images', 'N/A')} True, {stats.get('nb_images', 'N/A') - stats.get('nb_true_images', 'N/A')} False\n"
-            f"Average number of images per sequence : {stats.get('avg_nb_img_per_sequence', 'N/A')}\n"
-            f"Average number of images per sequence (multiple images sequences only) : {stats.get('avg_nb_img_per_sequence_multi', 'N/A')}\n"
-            f"Number of sequences with only one image : {stats.get('nb_one_img_sequences', 'N/A')}\n"
-        )
-
-        return repr_str
+    def dump(self, path=None):
+        output_csv = path if path else os.path.join(self.datapath, f"{os.path.basename(self.datapath)}.csv")
+        self.dataframe.to_csv(output_csv, index=False)
+        logging.info(f"DataFrame saved in {output_csv}")
 
     def compute_dataset_statistics(self):
         """
@@ -296,3 +284,25 @@ class EvaluationDataset:
             "nb_one_img_sequences" : len(one_img_sequences),
             "avg_nb_img_per_sequence_multi" : avg_nb_img_per_sequence_multi,
         }
+
+    def __len__(self):
+        return len(self.dataframe)
+
+    def __iter__(self):
+        """
+        Allows to do: for sequence in dataset: ...
+        """
+        return iter(self.sequences)
+
+    def __repr__(self):
+        stats = self.compute_dataset_statistics()
+        repr_str = (
+            f"CustomDataset with {len(self.sequences)} sequences and {stats.get('nb_images', 'N/A')} images.\n"
+            f"Sequence Labels: {stats.get('nb_true_sequences', 'N/A')} True, {len(self.sequences) - stats.get('nb_true_sequences', 'N/A')} False\n"
+            f"Image Labels: {stats.get('nb_true_images', 'N/A')} True, {stats.get('nb_images', 'N/A') - stats.get('nb_true_images', 'N/A')} False\n"
+            f"Average number of images per sequence : {stats.get('avg_nb_img_per_sequence', 'N/A'):.1f}\n"
+            f"Average number of images per sequence (multiple images sequences only) : {stats.get('avg_nb_img_per_sequence_multi', 'N/A'):.1f}\n"
+            f"Number of sequences with only one image : {stats.get('nb_one_img_sequences', 'N/A')}\n"
+        )
+
+        return repr_str
