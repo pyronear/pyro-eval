@@ -1,6 +1,6 @@
 from dataset import EvaluationDataset
 from model import Model
-from utils import find_matches
+from utils import compute_metrics, find_matches
 
 class ModelEvaluator:
     def __init__(self, dataset: EvaluationDataset, config={}, device=None):
@@ -39,18 +39,12 @@ class ModelEvaluator:
             nb_tp += tp
             nb_fn += fn
 
-        precision = nb_tp / (nb_tp + nb_fp) if (nb_tp + nb_fp) > 0 else 0
-        recall = nb_tp / (nb_tp + nb_fn) if (nb_tp + nb_fn) > 0 else 0
-        f1_score = (
-            2 * (precision * recall) / (precision + recall)
-            if (precision + recall) > 0
-            else 0
-        )
+        metrics = compute_metrics(false_positives=fp, true_positives=tp, false_negatives=fn)
 
         return {
-            "precision": precision,
-            "recall": recall,
-            "f1_score": f1_score,
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "f1_score": metrics["f1_score"],
             "fp" : int(nb_fp),
             "tp" : int(nb_tp),
             "fn" : int(nb_fn),

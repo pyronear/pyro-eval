@@ -6,13 +6,13 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.metrics import confusion_matrix
 
 from pyroengine.engine import Engine
 
 from dataset import EvaluationDataset
 from data_structures import Sequence
-from utils import make_dict_json_compatible, export_model
+from utils import compute_metrics, make_dict_json_compatible, export_model
 
 class EngineEvaluator:
     # TODO : as EngineEvaluator and ModelEvaluator share some attributes and methods the should inherits from an EvaluatorClass
@@ -126,22 +126,19 @@ class EngineEvaluator:
         Computes image-based metrics on the predicion dataframes.
         Those metrics do not take sequences into account.
         """
-        y_true = self.predictions_df["image_label"].apply(lambda x: x != "")
+        y_true = self.predictions_df["image_label"].apply(lambda x: x != "[]")
         y_pred = self.predictions_df["prediction"]
-
-        precision = precision_score(y_true, y_pred)
-        recall = recall_score(y_true, y_pred)
-        f1 = f1_score(y_true, y_pred)
         tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        metrics = compute_metrics(false_positives=fp, true_positives=tp, false_negatives=fn)
 
         logging.info("Image-level metrics")
-        logging.info(f"Precision: {precision:.3f}, Recall: {recall:.3f}, F1: {f1:.3f}")
+        logging.info(f"Precision: {metrics['precision']:.3f}, Recall: {metrics['recall']:.3f}, F1: {metrics['f1']:.3f}")
         logging.info(f"TP: {tp}, FP: {fp}, FN: {fn}, TN: {tn}")
 
         return {
-            "precision" : precision,
-            "recall" : recall,
-            "f1" : f1,
+            "precision" : metrics["precision"],
+            "recall" : metrics["recall"],
+            "f1" : metrics["f1"],
             "tn" : tn,
             "fp" : fp,
             "fn" : fn,
@@ -175,20 +172,14 @@ class EngineEvaluator:
 
         sequence_df = pd.DataFrame(sequence_metrics)
 
-        y_true_sequence = sequence_df['label']
-        y_pred_sequence = sequence_df['has_detection']
-
-        sequence_precision = precision_score(y_true_sequence, y_pred_sequence)
-        sequence_recall = recall_score(y_true_sequence, y_pred_sequence)
-        sequence_f1 = f1_score(y_true_sequence, y_pred_sequence)
-
         tp_sequences = sequence_df[(sequence_df['label'] == True) & (sequence_df['has_detection'] == True)]
         fn_sequences = sequence_df[(sequence_df['label'] == True) & (sequence_df['has_detection'] == False)]
         fp_sequences = sequence_df[(sequence_df['label'] == False) & (sequence_df['has_detection'] == True)]
         tn_sequences = sequence_df[(sequence_df['label'] == False) & (sequence_df['has_detection'] == False)]
+        metrics = compute_metrics(false_positives=fp_sequences, true_positives=tp_sequences, false_negatives=fn_sequences)
 
         logging.info("Sequence-level metrics")
-        logging.info(f"Precision: {sequence_precision:.3f}, Recall: {sequence_recall:.3f}, F1: {sequence_f1:.3f}")
+        logging.info(f"Precision: {metrics['precision']:.3f}, Recall: {metrics['recall']:.3f}, F1: {metrics['f1']:.3f}")
         logging.info(f"TP: {len(tp_sequences)}, FP: {len(fp_sequences)}, FN: {len(fn_sequences)}, TN: {len(tn_sequences)}")
 
         if not tp_sequences['detection_delay'].isnull().all():
@@ -198,9 +189,9 @@ class EngineEvaluator:
             logging.info("No detection delay info available for TP sequences.")
         
         return {
-            "precision" : sequence_precision,
-            "recall" : sequence_recall,
-            "f1" : sequence_f1,
+            "precision" : metrics["precision"],
+            "recall" : metrics["recall"],
+            "f1" : metrics["f1"],
             "tp": len(tp_sequences),
             "fp": len(fp_sequences),
             "fn": len(fn_sequences),

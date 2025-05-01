@@ -193,3 +193,14 @@ def replace_extension(input_string, list_input_ext, output_ext):
         i += 1
     return input_string
 
+def compute_metrics(false_positives, true_positives, false_negatives):
+
+    precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0.0
+    recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
+    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+    return {
+        "precision" : precision,
+        "recall" : recall,
+        "f1" : f1,
+    }

@@ -57,7 +57,6 @@ class EvaluationPipeline:
 
         self.display_metrics()
 
-
     def save_metrics(self):
         """
         Save results in a json file
