@@ -16,15 +16,13 @@ class EvaluationPipeline:
     def __init__(self,
                  dataset: EvaluationDataset,
                  config: dict = {},
-                 save: bool = False,
                  run_id: str = "",
                  resume: bool = False,
                  device : str = None,
                  eval : List[str] = ["model", "engine"]):
 
         self.dataset = dataset
-        self.config = config # Engine config
-        self.save = save
+        self.config = self.get_config(config)
         self.run_id = run_id or self.generate_run_id()
         self.resume = resume
         self.eval = eval # list of evaluation to perform, all by default
@@ -36,9 +34,17 @@ class EvaluationPipeline:
         # Evaluate the engine performance on series of images
         self.engine_evaluator = EngineEvaluator(dataset,
                                                 config=self.config,
-                                                save=self.save,
                                                 run_id=self.run_id,
                                                 resume=self.resume)
+
+    def get_config(self, config):
+        """
+        Assign default parameters to config dict
+        """
+        config.setdefault("nb_consecutive_frames", 4)
+        config.setdefault("conf_thresh", 0.15)
+        config.setdefault("max_bbox_size", 0.4)
+        return config
 
     def run(self):
         if "model" in self.eval:
@@ -51,19 +57,18 @@ class EvaluationPipeline:
 
         self.display_metrics()
 
-        if self.save:
-            self.save_metrics()
 
     def save_metrics(self):
         """
-        SAve results in a json file
+        Save results in a json file
         """
         result_file = f"data/results/{self.run_id}/metrics.json"
         os.makedirs(os.path.dirname(result_file), exist_ok=True)
         logging.info(f"Saving metrics in {result_file}")
 
         self.metrics.update({
-            "config" : self.config
+            "config" : self.config,
+            "run_id" : self.run_id
         })
 
         with open(result_file, 'w') as fp:
@@ -102,7 +107,7 @@ class EvaluationPipeline:
         """
         Generates a unique run_id to store results
         """
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d")
         rand_suffix = random.randint(1000, 9999)
         return f"run-{timestamp}-{rand_suffix}"
 
@@ -113,10 +118,13 @@ if __name__ == "__main__":
     # Instanciate Dataset
     dataset_path = "" # Folders with two sub-folders : images and labels
     dataset = EvaluationDataset(datapath=dataset_path)
+    dataset.dump()
 
+    
     # Launch Evaluation
     config = {
-        "model_path" : "data/models/250318_yolo11/yolov11s.pt"
+        "model_path" : "data/models/2025_04_30_hyp-search/hyp-search-v001/wildfire_bench_arthur_1_1ead7c5c17a7446f9b515f6a1d962a6f.pt"
     }
-    evaluation = EvaluationPipeline(dataset=dataset, config=config, save=True, device="mps")
+    evaluation = EvaluationPipeline(dataset=dataset, config=config, device="mps")
     evaluation.run()
+    evaluation.save_metrics()

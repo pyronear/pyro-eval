@@ -33,7 +33,7 @@ class EngineEvaluator:
         self.predictions_csv = ""
         self.model_path = self.config.get("model_path", None)
 
-    def run_engine_sequence(self, sequence:Sequence, model_path: str):
+    def run_engine_sequence(self, sequence:Sequence, run_model_path: str):
         """
         Instanciate an Engine and run predictions on a Sequence containing a list of images.
         Returns a dataframe containing image info and the confidence predicted
@@ -43,10 +43,10 @@ class EngineEvaluator:
         # TODO : better handle default values
 
         pyroEngine = Engine(
-            nb_consecutive_frames=self.config.get("nb_consecutive_frames", 4),
-            conf_thresh=self.config.get("conf_thresh", 0.15),
-            max_bbox_size=self.config.get("max_bbox_size", 0.4),
-            model_path=model_path
+            nb_consecutive_frames=self.config["nb_consecutive_frames"],
+            conf_thresh=self.config["conf_thresh"],
+            max_bbox_size=self.config["max_bbox_size"],
+            model_path=run_model_path
         )
 
         sequence_results = pd.DataFrame(columns=self.results_data)
