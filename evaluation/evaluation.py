@@ -110,21 +110,3 @@ class EvaluationPipeline:
         timestamp = datetime.now().strftime("%Y%m%d")
         rand_suffix = random.randint(1000, 9999)
         return f"run-{timestamp}-{rand_suffix}"
-
-if __name__ == "__main__":
-
-    # Usage example
-    
-    # Instanciate Dataset
-    dataset_path = "" # Folders with two sub-folders : images and labels
-    dataset = EvaluationDataset(datapath=dataset_path)
-    dataset.dump()
-
-    
-    # Launch Evaluation
-    config = {
-        "model_path" : "data/models/2025_04_30_hyp-search/hyp-search-v001/wildfire_bench_arthur_1_1ead7c5c17a7446f9b515f6a1d962a6f.pt"
-    }
-    evaluation = EvaluationPipeline(dataset=dataset, config=config, device="mps")
-    evaluation.run()
-    evaluation.save_metrics()
