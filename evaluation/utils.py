@@ -1,34 +1,38 @@
 import re
 import os
-import shutil
-import tempfile
 from datetime import datetime
-from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
 from pandas import Timedelta
 from ultralytics import YOLO
 
-EXT = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
+EXTENSIONS = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
 
 def is_image(image_path):
     return os.path.isfile(image_path) and has_image_extension(image_path)
 
 def has_image_extension(image_path):
-    return os.path.splitext(image_path)[-1].lower() in EXT
+    return os.path.splitext(image_path)[-1].lower() in EXTENSIONS
 
 def parse_date_from_filepath(filepath):
-    filename = os.path.basename(filepath)
     '''Extracts date from filename, typcally : pyronear_sdis-07_brison-200_2024-01-26t11-13-37.jpg'''
+    
+    filename = os.path.basename(filepath)
+    prefix, file_datetime = None, None
+
     pattern = r'_(\d{4})_(\d{2})_(\d{2})t(\d{2})_(\d{2})_(\d{2})\.(jpg|png)$'
 
     # Search for the pattern in the filename
     match = re.search(pattern, filename.lower())
 
+    if not match:
+        pattern = r'_(\d{4})-(\d{2})-(\d{2})t(\d{2})-(\d{2})-(\d{2})\.(jpg|png)$'
+        match = re.search(pattern, filename.lower())
+
     if match:
         # Extract components
-        prefix = match.group(0)
+        prefix = filename[:match.start()]
         year = int(match.group(1))
         month = int(match.group(2))
         day = int(match.group(3))
@@ -38,12 +42,12 @@ def parse_date_from_filepath(filepath):
 
         # Create datetime object
         file_datetime = datetime(year, month, day, hour, minute, second)
-        return {
-            "prefix": prefix, 
-            "date": file_datetime,
-        }
 
-    return None
+    return {
+        "prefix": prefix, 
+        "date": file_datetime,
+    }
+
 
 def make_dict_json_compatible(data):
     '''
@@ -168,17 +172,24 @@ def export_model(model_path: str):
     """
     Engine needs an onnx model to be instanciated, this methods creates a .onnx file from the .pt path
     """
-    tmp_dir = Path(tempfile.mkdtemp())
-    onnx_path = tmp_dir / "tmp_model.onnx"
-
+    # Load .pt model and export
     model = YOLO(model_path)
-    model.export(format="onnx", dynamic=True, export_path=str(onnx_path))
+
+    # Export to onnx format
+    onnx_path = model.export(format="onnx", dynamic=True)
+    if not os.path.isfile(onnx_path):
+        raise RuntimeError("Failed to export the model to onnx format.")
+
     return onnx_path
 
-def delete_tmp_model(filepath: str):
+def replace_extension(input_string, list_input_ext, output_ext):
     """
-    Removes temporary folder
+    Function that allows to convert a filename extension with multiple input extensions possible
+    TODO: properly manage uppercase extensions
     """
-    tmp_folder = Path(filepath).parent
-    shutil.rmtree(tmp_folder)   
-    
+    i = 0
+    while (not input_string.endswith(".txt") or i == len(list_input_ext) - 1):
+        input_string = input_string.replace(list_input_ext[i], output_ext)
+        i += 1
+    return input_string
+

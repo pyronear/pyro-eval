@@ -12,7 +12,7 @@ from pyroengine.engine import Engine
 
 from dataset import EvaluationDataset
 from data_structures import Sequence
-from utils import make_dict_json_compatible, export_model, delete_tmp_model
+from utils import make_dict_json_compatible, export_model
 
 class EngineEvaluator:
     # TODO : as EngineEvaluator and ModelEvaluator share some attributes and methods the should inherits from an EvaluatorClass
@@ -31,8 +31,9 @@ class EngineEvaluator:
         self.resume = resume # If True, we look for partial results in results/<run_id>
         self.results_data = ["sequence_id", "image", "sequence_label", "image_label", "prediction", "conf", "timedelta"]
         self.predictions_csv = ""
+        self.model_path = self.config.get("model_path", None)
 
-    def run_engine_sequence(self, sequence:Sequence):
+    def run_engine_sequence(self, sequence:Sequence, model_path: str):
         """
         Instanciate an Engine and run predictions on a Sequence containing a list of images.
         Returns a dataframe containing image info and the confidence predicted
@@ -40,41 +41,29 @@ class EngineEvaluator:
         
         # Initialize a new Engine for each sequence
         # TODO : better handle default values
-        
-        model_path = self.config.get("model_path", None)
-        needs_deletion  = False
 
-        # We need to convert .pt local paths to .onnx as that's the only format supported by the engine
-        if model_path.endswith(".pt"):
-            model_path = export_model(model_path)
-            needs_deletion = True
+        pyroEngine = Engine(
+            nb_consecutive_frames=self.config.get("nb_consecutive_frames", 4),
+            conf_thresh=self.config.get("conf_thresh", 0.15),
+            max_bbox_size=self.config.get("max_bbox_size", 0.4),
+            model_path=model_path
+        )
 
-        try:
-            pyroEngine = Engine(
-                nb_consecutive_frames=self.config.get("nb_consecutive_frames", 4),
-                conf_thresh=self.config.get("conf_thresh", 0.15),
-                max_bbox_size=self.config.get("max_bbox_size", 0.4),
-                model_path=self.config.get("model_path", None)
-            )
+        sequence_results = pd.DataFrame(columns=self.results_data)
 
-            sequence_results = pd.DataFrame(columns=self.results_data)
-
-            for image in sequence.images:
-                pil_image = image.load()
-                # Run prediction on a single image
-                confidence = pyroEngine.predict(pil_image)
-                sequence_results.loc[len(sequence_results)] = [
-                    sequence.sequence_id,
-                    image.image_path,
-                    sequence.label,
-                    image.label,
-                    confidence > pyroEngine.conf_thresh,
-                    confidence,
-                    image.timedelta
-                ]
-        finally:
-            if needs_deletion:
-                delete_tmp_model(model_path)
+        for image in sequence.images:
+            pil_image = image.load()
+            # Run prediction on a single image
+            confidence = pyroEngine.predict(pil_image)
+            sequence_results.loc[len(sequence_results)] = [
+                sequence.sequence_id,
+                image.image_path,
+                sequence.label,
+                image.label,
+                confidence > pyroEngine.conf_thresh,
+                confidence,
+                image.timedelta
+            ]
 
         return sequence_results
 
@@ -97,17 +86,36 @@ class EngineEvaluator:
         else:
             self.predictions_df = pd.DataFrame(columns=self.results_data)
 
-        for sequence in self.dataset:
-            if self.resume and sequence in set(self.predictions_df["sequence_id"].to_list()):
-                logging.info(f"Results of {sequence} found in predictions csv, sequence skipped.")
-                continue
-            sequence_results = self.run_engine_sequence(sequence)
-            
-            # Add sequence results to result dataframe
-            self.predictions_df = pd.concat([self.predictions_df, sequence_results])
-            # Checkpoint to save predictions every 50 images
-            if self.save and len(self.predictions_df) % 50 == 0:
-                self.predictions_df.to_csv(self.predictions_csv, index=False)
+        needs_deletion  = False
+
+        # We need to convert .pt local paths to .onnx as that's the only format supported by the engine
+        if self.model_path.endswith(".onnx"):
+            run_model_path = self.model_path
+        elif self.model_path.endswith(".pt"):
+            logging.info(f"Exporting model file from pt to onnx format.")
+            run_model_path = export_model(self.model_path)
+            needs_deletion = True
+        else:
+            raise RuntimeError(f"Model format not supported by the Engine : {self.model_path}")
+        try:
+            for sequence in self.dataset:
+                if self.resume and sequence in set(self.predictions_df["sequence_id"].to_list()):
+                    logging.info(f"Results of {sequence} found in predictions csv, sequence skipped.")
+                    continue
+                sequence_results = self.run_engine_sequence(sequence, run_model_path)
+
+                # Add sequence results to result dataframe
+                self.predictions_df = pd.concat([self.predictions_df, sequence_results])
+                # Checkpoint to save predictions every 50 images
+                if self.save and len(self.predictions_df) % 50 == 0:
+                    self.predictions_df.to_csv(self.predictions_csv, index=False)
+
+        finally:
+            if needs_deletion:
+                try:
+                    os.remove(run_model_path)
+                except:
+                    logging.error(f"Temporary model file could not be removed : {run_model_path}")
 
         if self.save:
             logging.info(f"Saving predictions in {self.predictions_csv}")

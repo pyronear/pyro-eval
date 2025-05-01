@@ -10,7 +10,7 @@ from datasets import load_dataset
 from huggingface_hub import HfApi, HfFolder
 
 from data_structures import CustomImage, Sequence
-from utils import parse_date_from_filepath, is_image, has_image_extension
+from utils import EXTENSIONS, parse_date_from_filepath, is_image, has_image_extension, replace_extension
 
 class EvaluationDataset:
     """
@@ -78,7 +78,11 @@ class EvaluationDataset:
             """
             Loads boxes coordinnates from a txt file.
             """
-            annotation_file = image_path.replace("/images/", "/labels/").replace(".jpg", ".txt")
+            # Get labels folder
+            annotation_file = image_path.replace("/images/", "/labels/")
+            # Change file extension to .txt
+            annotation_file = replace_extension(annotation_file, EXTENSIONS, ".txt")
+                    
             if not os.path.isfile(annotation_file):
                 boxes = []
             else:
@@ -90,7 +94,17 @@ class EvaluationDataset:
 
         image_list = [image for image in sorted(glob.glob(f"{self.datapath}/images/*")) if is_image(image)]
         annotations = [load_annotation(image_path) for image_path in image_list]
-        timestamps = [parse_date_from_filepath(image_path)["date"] for image_path in image_list]
+        timestamps = [parse_date_from_filepath(image_path).get("date", None) for image_path in image_list]
+        logging.info(f"No timestamp found on {timestamps.count(None)} images.")
+
+        # TODO : investigate storing the 3 lists above in an OrderedDict
+        self.images_info = {
+            image_path : {
+                "prefix" : parse_date_from_filepath(image_path).get("prefix", None),
+                "date" : parse_date_from_filepath(image_path).get("date", None)
+            }
+            for image_path in image_list
+        }
 
         # Identify common sequence and store data in a dataframe
         dataframe = self.determine_sequences(image_list, annotations, timestamps)
@@ -122,7 +136,7 @@ class EvaluationDataset:
 
             self.sequences.append(Sequence(sequence_id, images=custom_images))
 
-    def determine_sequences(self, image_list, annotations, timestamps=None, max_delta=30):
+    def determine_sequences(self, image_list, annotations, timestamps, max_delta=30):
         '''
         Parse images to detect files belonging to the same sequence by comparing camera name and capture dates.
         Expects file named as *_year_month_daythour_*
@@ -132,11 +146,13 @@ class EvaluationDataset:
         current_sequence = None
 
         for image_path, annotation, timestamp in zip(image_list, annotations, timestamps):
+            # TODO : Better handle images without timestamps
             if not has_image_extension(image_path) or not timestamp:
-                logging.info(f"Skipping {image_path} : wrong extenison or unable to retrieve timestamp.")
+                logging.info(f"Skipping {image_path} : wrong extension or unable to retrieve timestamp.")
                 continue
-
-            image_prefix = os.path.basename(os.path.splitext(image_path)[0]).replace(timestamp.strftime("%Y_%m_%dt%H_%M_%S"), "")
+            
+            # TODO : Date format to standardize
+            image_prefix = self.images_info.get(image_path, {}).get("prefix")
 
             if not current_sequence:
                 current_sequence = os.path.splitext(os.path.basename(image_path))[0]
@@ -220,7 +236,7 @@ class EvaluationDataset:
         duplicates = {h: paths for h, paths in hash_to_paths.items() if len(paths) > 1}
 
         if duplicates:
-            logging.warning("Duplicate image hashes detected:")
+            logging.warning(f"{len(duplicates.keys())} duplicate image hashes detected")
             for h, paths in duplicates.items():
                 logging.warning(f"Hash {h} found in {len(paths)} files:")
                 for path in paths:
@@ -242,7 +258,22 @@ class EvaluationDataset:
         return iter(self.sequences)
 
     def __repr__(self):
-        
+        stats = self.compute_dataset_statistics()
+        repr_str = (
+            f"CustomDataset with {len(self.sequences)} sequences and {stats.get('nb_images', 'N/A')} images.\n"
+            f"Sequence Labels: {stats.get('nb_true_sequences', 'N/A')} True, {len(self.sequences) - stats.get('nb_true_sequences', 'N/A')} False\n"
+            f"Image Labels: {stats.get('nb_true_images', 'N/A')} True, {stats.get('nb_images', 'N/A') - stats.get('nb_true_images', 'N/A')} False\n"
+            f"Average number of images per sequence : {stats.get('avg_nb_img_per_sequence', 'N/A')}\n"
+            f"Average number of images per sequence (multiple images sequences only) : {stats.get('avg_nb_img_per_sequence_multi', 'N/A')}\n"
+            f"Number of sequences with only one image : {stats.get('nb_one_img_sequences', 'N/A')}\n"
+        )
+
+        return repr_str
+
+    def compute_dataset_statistics(self):
+        """
+        Computes stastistics on the dataset built
+        """
         nb_true_sequences = 0
         nb_true_images = 0
         for sequence in self.sequences:
@@ -252,10 +283,16 @@ class EvaluationDataset:
                 if len(image.label) > 0:
                     nb_true_images += 1
         nb_images = len(self.get_all_images())
-        repr_str = (
-            f"CustomDataset with {len(self.sequences)} sequences and {nb_images} images.\n"
-            f"Sequence Labels: {nb_true_sequences} True, {len(self.sequences) - nb_true_sequences} False\n"
-            f"Image Labels: {nb_true_images} True, {nb_images - nb_true_images} False"
-        )
-
-        return repr_str
+        one_img_sequences = [seq for seq in self.sequences if len(seq) == 1]
+        multi_img_sequences = [len(seq) for seq in self.sequences if len(seq) > 1]
+        avg_nb_img_per_sequence = len(self.dataframe) / len(self.sequences) if len(self.sequences) != 0 else 0
+        avg_nb_img_per_sequence_multi = sum(multi_img_sequences) / len(multi_img_sequences) if len(multi_img_sequences) != 0 else 0
+        
+        return {
+            "nb_images" : nb_images,
+            "nb_true_sequences" : nb_true_sequences,
+            "nb_true_images" : nb_true_images,
+            "avg_nb_img_per_sequence" : avg_nb_img_per_sequence,
+            "nb_one_img_sequences" : len(one_img_sequences),
+            "avg_nb_img_per_sequence_multi" : avg_nb_img_per_sequence_multi,
+        }

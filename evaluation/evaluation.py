@@ -42,14 +42,13 @@ class EvaluationPipeline:
 
     def run(self):
         if "model" in self.eval:
+            logging.info("Compute model metrics")
             self.metrics["model_metrics"] = self.model_evaluator.evaluate()
-            logging.info
+            self.display_metrics(subset=["model"])
         if "engine" in self.eval:
-            if self.config.get("model_path", "").endswith(".onnx"):
-                self.metrics["engine_metrics"] = self.engine_evaluator.evaluate()
-            else:
-                logging.info("Need to provide an .onnx model to perform the Engine evaluation")
-        
+            logging.info("Compute engine metrics")
+            self.metrics["engine_metrics"] = self.engine_evaluator.evaluate()
+
         self.display_metrics()
 
         if self.save:
@@ -63,33 +62,41 @@ class EvaluationPipeline:
         os.makedirs(os.path.dirname(result_file), exist_ok=True)
         logging.info(f"Saving metrics in {result_file}")
 
+        self.metrics.update({
+            "config" : self.config
+        })
+
         with open(result_file, 'w') as fp:
             json.dump(self.metrics, fp)
 
-    def display_metrics(self):
+    def display_metrics(self, subset = ["model", "engine"]):
         def format_metric(value):
             return f"{value:.2f}" if isinstance(value, (int, float)) else "N/A"
 
         model_metrics = self.metrics.get("model_metrics", {})
-
-        logging.info("Model Metrics:")
-        logging.info(f"  Precision: {format_metric(model_metrics.get('precision', 'N/A'))}")
-        logging.info(f"  Recall:    {format_metric(model_metrics.get('recall', 'N/A'))}")
-        logging.info(f"  F1 Score:  {format_metric(model_metrics.get('f1_score', 'N/A'))}")
+        logging.info(f"Run ID: {self.run_id}")
+        if "model" in subset:
+            logging.info("Model Metrics:")
+            logging.info(f"  Precision: {format_metric(model_metrics.get('precision', 'N/A'))}")
+            logging.info(f"  Recall:    {format_metric(model_metrics.get('recall', 'N/A'))}")
+            logging.info(f"  F1 Score:  {format_metric(model_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"  False positives:  {format_metric(model_metrics.get('fp', 'N/A'))}")
+            logging.info(f"  True positives:  {format_metric(model_metrics.get('tp', 'N/A'))}")
+            logging.info(f"  False negatives:  {format_metric(model_metrics.get('fn', 'N/A'))}")
 
         engine_image_metrics = self.metrics.get("engine_metrics", {}).get("image_metrics", {})
         engine_sequence_metrics = self.metrics.get("engine_metrics", {}).get("sequence_metrics", {})
-
-        logging.info("Engine Metrics:")
-        logging.info("    Image Metrics:")
-        logging.info(f"     Precision: {format_metric(engine_image_metrics.get('precision', 'N/A'))}")
-        logging.info(f"     Recall:    {format_metric(engine_image_metrics.get('recall', 'N/A'))}")
-        logging.info(f"     F1 Score:  {format_metric(engine_image_metrics.get('f1_score', 'N/A'))}")
-        logging.info("    Sequence Metrics:")
-        logging.info(f"     Precision: {format_metric(engine_sequence_metrics.get('precision', 'N/A'))}")
-        logging.info(f"     Recall:    {format_metric(engine_sequence_metrics.get('recall', 'N/A'))}")
-        logging.info(f"     F1 Score:  {format_metric(engine_sequence_metrics.get('f1_score', 'N/A'))}")
-        logging.info(f"     Averagde Detecion Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}")
+        if "engine" in subset:
+            logging.info("Engine Metrics:")
+            logging.info("    Image Metrics:")
+            logging.info(f"     Precision: {format_metric(engine_image_metrics.get('precision', 'N/A'))}")
+            logging.info(f"     Recall:    {format_metric(engine_image_metrics.get('recall', 'N/A'))}")
+            logging.info(f"     F1 Score:  {format_metric(engine_image_metrics.get('f1_score', 'N/A'))}")
+            logging.info("    Sequence Metrics:")
+            logging.info(f"     Precision: {format_metric(engine_sequence_metrics.get('precision', 'N/A'))}")
+            logging.info(f"     Recall:    {format_metric(engine_sequence_metrics.get('recall', 'N/A'))}")
+            logging.info(f"     F1 Score:  {format_metric(engine_sequence_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"     Averagde Detecion Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}")
 
     def generate_run_id(self):
         """
@@ -109,7 +116,7 @@ if __name__ == "__main__":
 
     # Launch Evaluation
     config = {
-        "model_path" : "/Users/theocayla/Documents/Dev/Pyronear/models/250318_yolo11/yolov11s.pt"
+        "model_path" : "data/models/250318_yolo11/yolov11s.pt"
     }
     evaluation = EvaluationPipeline(dataset=dataset, config=config, save=True, device="mps")
     evaluation.run()
