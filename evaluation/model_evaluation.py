@@ -47,4 +47,11 @@ class ModelEvaluator:
             else 0
         )
 
-        return {"precision": precision, "recall": recall, "f1_score": f1_score}
+        return {
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1_score,
+            "fp" : int(nb_fp),
+            "tp" : int(nb_tp),
+            "fn" : int(nb_fn),
+            }
