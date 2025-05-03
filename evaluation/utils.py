@@ -194,6 +194,12 @@ def replace_extension(input_string, list_input_ext, output_ext):
     return input_string
 
 def compute_metrics(false_positives, true_positives, false_negatives):
+    print("false_positives")
+    print(false_positives)
+    print("true_positives")
+    print(true_positives)
+    print("false_negatives")
+    print(false_negatives)
 
     precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0.0
     recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
@@ -204,3 +210,16 @@ def compute_metrics(false_positives, true_positives, false_negatives):
         "recall" : recall,
         "f1" : f1,
     }
+
+def get_dict_types(d):
+    def infer_type(value):
+        if isinstance(value, dict):
+            return get_dict_types(value)
+        elif isinstance(value, list) and value:
+            # Si la liste est non vide, on suppose que tous les éléments sont du même type
+            element_type = type(value[0])
+            return list[element_type]
+        else:
+            return type(value)
+    
+    return {k: infer_type(v) for k, v in d.items()}

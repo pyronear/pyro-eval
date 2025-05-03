@@ -44,7 +44,7 @@ class ModelEvaluator:
         return {
             "precision": metrics["precision"],
             "recall": metrics["recall"],
-            "f1_score": metrics["f1_score"],
+            "f1_score": metrics["f1"],
             "fp" : int(nb_fp),
             "tp" : int(nb_tp),
             "fn" : int(nb_fn),
