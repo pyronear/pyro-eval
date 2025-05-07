@@ -33,7 +33,7 @@ class EvaluationDataset:
         # Build dataset from Sequence and CustomImage objects
         self.build_dataset()
         self.hash = self.compute_hash()
-        self.dataset_ID = dataset_ID if dataset_ID else f"dataset_{datetime.now()}_{self.hash}"
+        self.dataset_ID = dataset_ID if dataset_ID else f"dataset_{datetime.now()}_{self.hash[:10]}"
 
         self.dataframe = self.get_sequence_label()
         
@@ -126,7 +126,7 @@ class EvaluationDataset:
                     image_path=row['image'],
                     sequence_id=sequence_id,
                     timedelta=row['delta'],
-                    label=row['label']
+                    boxes=row['boxes']
                 )
                 for _, row in sequence_df.iterrows()
             ]
@@ -142,7 +142,7 @@ class EvaluationDataset:
         data = []
         current_sequence = None
 
-        for image_path, annotation, timestamp in zip(image_list, annotations, timestamps):
+        for image_path, boxes, timestamp in zip(image_list, annotations, timestamps):
             # TODO : Better handle images without timestamps
             if not has_image_extension(image_path) or not timestamp:
                 logging.info(f"Skipping {image_path} : wrong extension or unable to retrieve timestamp.")
@@ -153,35 +153,35 @@ class EvaluationDataset:
 
             if not current_sequence:
                 current_sequence = os.path.splitext(os.path.basename(image_path))[0]
-                sequence_images = [(image_path, timestamp, annotation)]
+                sequence_images = [(image_path, timestamp, boxes)]
                 sequence_start = timestamp
                 previous_image_timestamp = timestamp
                 previous_prefix = image_prefix
             else:
                 if (timestamp - previous_image_timestamp) <= timedelta(minutes=max_delta) and image_prefix == previous_prefix:
-                    sequence_images.append((image_path, timestamp, annotation))
+                    sequence_images.append((image_path, timestamp, boxes))
                 else:
                     # More than 30 min between two captures -> Save current sequence and start a new one
-                    for im_path, im_timestamp, im_label in sequence_images:
+                    for im_path, im_timestamp, im_boxes in sequence_images:
                         data.append({
                             'image': im_path,
                             'sequence_id': current_sequence,
-                            'label': im_label,
+                            'boxes': im_boxes,
                             'delta': im_timestamp - sequence_start
                         })
 
                     current_sequence = os.path.splitext(os.path.basename(image_path))[0]
-                    sequence_images = [(image_path, timestamp, annotation)]
+                    sequence_images = [(image_path, timestamp, boxes)]
                     sequence_start = timestamp
                 previous_image_timestamp = timestamp
                 previous_prefix = image_prefix
         # Save last sequence
         if sequence_images:
-            for image_path, timestamp, annotation in sequence_images:
+            for image_path, timestamp, boxes in sequence_images:
                 data.append({
                     'image': image_path,
                     'sequence_id': current_sequence,
-                    'label': annotation,
+                    'boxes': boxes,
                     'delta': timestamp - sequence_start
                 })
 
@@ -213,7 +213,6 @@ class EvaluationDataset:
         for sequence in self.sequences:
             all_images.extend(sequence.images)
         return all_images
-
 
     def compute_hash(self):
         """
@@ -270,7 +269,7 @@ class EvaluationDataset:
             if sequence.label :
                 nb_true_sequences += 1
             for image in sequence.images:
-                if len(image.label) > 0:
+                if image.label:
                     nb_true_images += 1
         nb_images = len(self.get_all_images())
         one_img_sequences = [seq for seq in self.sequences if len(seq) == 1]
@@ -331,8 +330,8 @@ class EvaluationDataset:
             f"+{'-'*48}+\n"
             f"| {'CustomDataset Summary':^46} |\n"
             f"+{'='*48}+\n"
-            f"| Total sequences                     | {total_sequences:>7} |\n"
             f"| Total images                        | {nb_images:>7} |\n"
+            f"| Total sequences                     | {total_sequences:>7} |\n"
             f"| Invalid images (invalid naming)     | {self.nb_invalid_images:>7} |\n"
             f"+{'-'*48}+\n"
             f"| Sequences with label=True           | {nb_true_sequences:>7} |\n"

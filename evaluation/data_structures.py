@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 from PIL import Image as PILImage
@@ -16,7 +16,7 @@ class CustomImage:
     image_path: str
     sequence_id: str
     timedelta: float
-    label: str
+    boxes: List[str]
 
     timestamp: str = field(init=False)
     hash: str = field(init=False)
@@ -25,6 +25,7 @@ class CustomImage:
     def __post_init__(self):
         self.timestamp = parse_date_from_filepath(self.image_path)["date"]
         self.hash = self.compute_hash()
+        self.label: bool = len(self.boxes) > 0
     
     def load(self) -> PILImage.Image:
         """
@@ -45,14 +46,28 @@ class CustomImage:
         return hash_md5.hexdigest()
 
     @property
-    def label_xyxy(self):
+    def boxes_xyxy(self):
         """
-        Returns a numpy array containing bounding boxes coordinates in xyxy format.
+        Returns a list of bounding boxes coordinates in xyxy format.
         """
+        # Handle empty case safely
+        print("def boxes_xyxy")
+        print("self.boxes")
+        print(self.boxes)
+        if not self.boxes:
+            return []
+        # try:
         # Remove trailing \n, whitespaces, first value of the predicted array (class id) for each box
-        boxes = [np.array(box.strip().split(" ")[1:5]).astype(float) for box in self.label]
+        boxes = [np.array(box.strip().split(" ")[1:5]).astype(float) for box in self.boxes]
+        print("boxes")
+        print(boxes)
         # Translate into xyxy coordinates and return
+        print("[xywh2xyxy(box) for box in boxes]")
+        print([xywh2xyxy(box) for box in boxes])
         return [xywh2xyxy(box) for box in boxes]
+        # except Exception as e:
+        #     logging.warning(f"Failed to parse boxes for image {self.image_path}: {e}")
+        #     return []
 
 class Sequence:
     """
