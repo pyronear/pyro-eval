@@ -45,6 +45,7 @@ class EvaluationPipeline:
         config.setdefault("nb_consecutive_frames", 4)
         config.setdefault("conf_thresh", 0.15)
         config.setdefault("max_bbox_size", 0.4)
+        config.setdefault("iou", 0.1)
         return config
 
     def run(self):
@@ -104,14 +105,14 @@ class EvaluationPipeline:
         if "engine" in subset:
             logging.info("Engine Metrics:")
             logging.info("    Image Metrics:")
-            logging.info(f"     Precision: {format_metric(engine_image_metrics.get('precision', 'N/A'))}")
-            logging.info(f"     Recall:    {format_metric(engine_image_metrics.get('recall', 'N/A'))}")
-            logging.info(f"     F1 Score:  {format_metric(engine_image_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"       Precision: {format_metric(engine_image_metrics.get('precision', 'N/A'))}")
+            logging.info(f"       Recall:    {format_metric(engine_image_metrics.get('recall', 'N/A'))}")
+            logging.info(f"       F1 Score:  {format_metric(engine_image_metrics.get('f1_score', 'N/A'))}")
             logging.info("    Sequence Metrics:")
-            logging.info(f"     Precision: {format_metric(engine_sequence_metrics.get('precision', 'N/A'))}")
-            logging.info(f"     Recall:    {format_metric(engine_sequence_metrics.get('recall', 'N/A'))}")
-            logging.info(f"     F1 Score:  {format_metric(engine_sequence_metrics.get('f1_score', 'N/A'))}")
-            logging.info(f"     Averagde Detecion Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}")
+            logging.info(f"       Precision: {format_metric(engine_sequence_metrics.get('precision', 'N/A'))}")
+            logging.info(f"       Recall:    {format_metric(engine_sequence_metrics.get('recall', 'N/A'))}")
+            logging.info(f"       F1 Score:  {format_metric(engine_sequence_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"       Averagde Detecion Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}")
 
     def generate_run_id(self):
         """

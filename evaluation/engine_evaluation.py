@@ -6,7 +6,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 
 from pyroengine.engine import Engine
 
@@ -24,12 +24,13 @@ class EngineEvaluator:
                  run_id: str = None,
                  resume : bool = True
                  ):
+
         self.dataset = dataset
         self.config = config
         self.save = save # If save is True we regularly dump results and the config used
-        self.run_id = run_id if len(run_id) > 0 else self.generate_run_id()
+        self.run_id = run_id if run_id else self.generate_run_id()
         self.resume = resume # If True, we look for partial results in results/<run_id>
-        self.results_data = ["sequence_id", "image", "sequence_label", "image_label", "prediction", "conf", "timedelta"]
+        self.results_data = ["sequence_id", "image", "sequence_label", "ground_truth_boxes", "image_label", "prediction", "confidence", "timedelta"]
         self.predictions_csv = ""
         self.model_path = self.config.get("model_path", None)
 
@@ -56,13 +57,14 @@ class EngineEvaluator:
             # Run prediction on a single image
             confidence = pyroEngine.predict(pil_image)
             sequence_results.loc[len(sequence_results)] = [
-                sequence.sequence_id,
-                image.image_path,
-                sequence.label,
-                image.label,
-                confidence > pyroEngine.conf_thresh,
-                confidence,
-                image.timedelta
+                sequence.sequence_id, # sequence_id 
+                image.image_path, # image
+                sequence.label, # sequence_label
+                image.boxes, # ground_truth_boxes
+                image.label, # image_label
+                bool(confidence > pyroEngine.conf_thresh), # prediction (True/False)
+                confidence, # confidence
+                image.timedelta # timedelta
             ]
 
         return sequence_results
@@ -74,7 +76,7 @@ class EngineEvaluator:
 
         if self.save:
             # Csv file where detailed predictions are dumped
-            self.result_dir = os.path.join(os.path.dirname(__file__), "data/results", self.run_id)
+            self.result_dir = os.path.join(os.path.dirname(__file__), "data/results/engine", self.run_id)
             os.makedirs(self.result_dir, exist_ok=True)
             self.predictions_csv = os.path.join(self.result_dir, "results.csv")
 
@@ -99,7 +101,7 @@ class EngineEvaluator:
             raise RuntimeError(f"Model format not supported by the Engine : {self.model_path}")
         try:
             for sequence in self.dataset:
-                if self.resume and sequence in set(self.predictions_df["sequence_id"].to_list()):
+                if self.resume and sequence.sequence_id in set(self.predictions_df["sequence_id"].to_list()):
                     logging.info(f"Results of {sequence} found in predictions csv, sequence skipped.")
                     continue
                 sequence_results = self.run_engine_sequence(sequence, run_model_path)
@@ -126,11 +128,16 @@ class EngineEvaluator:
         Computes image-based metrics on the predicion dataframes.
         Those metrics do not take sequences into account.
         """
-        y_true = self.predictions_df["image_label"].apply(lambda x: x != "[]")
-        y_pred = self.predictions_df["prediction"]
-        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-        metrics = compute_metrics(false_positives=fp, true_positives=tp, false_negatives=fn)
 
+        y_true = self.predictions_df["image_label"].astype(bool)
+        y_pred = self.predictions_df["prediction"].astype(bool)
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[False, True]).ravel()
+        
+        metrics = {
+            "precision" : precision_score(y_true, y_pred, zero_division=0),
+            "recall" : recall_score(y_true, y_pred, zero_division=0),
+            "f1" : f1_score(y_true, y_pred, zero_division=0)
+        }
         logging.info("Image-level metrics")
         logging.info(f"Precision: {metrics['precision']:.3f}, Recall: {metrics['recall']:.3f}, F1: {metrics['f1']:.3f}")
         logging.info(f"TP: {tp}, FP: {fp}, FN: {fn}, TN: {tn}")
@@ -176,7 +183,7 @@ class EngineEvaluator:
         fn_sequences = sequence_df[(sequence_df['label'] == True) & (sequence_df['has_detection'] == False)]
         fp_sequences = sequence_df[(sequence_df['label'] == False) & (sequence_df['has_detection'] == True)]
         tn_sequences = sequence_df[(sequence_df['label'] == False) & (sequence_df['has_detection'] == False)]
-        metrics = compute_metrics(false_positives=fp_sequences, true_positives=tp_sequences, false_negatives=fn_sequences)
+        metrics = compute_metrics(false_positives=len(fp_sequences), true_positives=len(tp_sequences), false_negatives=len(fn_sequences))
 
         logging.info("Sequence-level metrics")
         logging.info(f"Precision: {metrics['precision']:.3f}, Recall: {metrics['recall']:.3f}, F1: {metrics['f1']:.3f}")
@@ -215,6 +222,8 @@ class EngineEvaluator:
         if self.save:
             with open(os.path.join(self.result_dir, "engine_metrics.json"), 'w') as fip:
                 json.dump(make_dict_json_compatible(self.metrics), fip)
+
+        return self.metrics
     
     def generate_run_id(self):
         """

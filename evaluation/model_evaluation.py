@@ -8,6 +8,7 @@ class ModelEvaluator:
         self.config = config
         self.model_path = self.config.get("model_path", None)
         self.inference_params = self.config.get("inference_params", {})
+        self.iou_threshold = self.config.get("iou", 0.1)
 
         # Load model
         self.model = Model(self.model_path, self.inference_params, device)
@@ -17,8 +18,7 @@ class ModelEvaluator:
 
     def run_predictions(self):
         # Run pred for each CustomImage in the EvaluationDataset
-        images = self.images
-        for image in images:
+        for image in self.images:
             image.prediction = self.model.inference(image)
 
     def evaluate(self):
@@ -28,18 +28,19 @@ class ModelEvaluator:
         self.run_predictions()
 
         nb_fp, nb_tp, nb_fn = 0, 0, 0
+
         for image  in self.images:
             # Labels
-            gt_boxes = image.label_xyxy
+            gt_boxes = image.boxes_xyxy
             # Predictions
             pred_boxes = image.prediction
-            fp, tp, fn = find_matches(gt_boxes, pred_boxes, self.config.get("iou", 0.1))
+            fp, tp, fn = find_matches(gt_boxes, pred_boxes, self.iou_threshold)
 
             nb_fp += fp
             nb_tp += tp
             nb_fn += fn
 
-        metrics = compute_metrics(false_positives=fp, true_positives=tp, false_negatives=fn)
+        metrics = compute_metrics(false_positives=nb_fp, true_positives=nb_tp, false_negatives=nb_fn)
 
         return {
             "precision": metrics["precision"],
