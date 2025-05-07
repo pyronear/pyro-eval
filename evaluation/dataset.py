@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from datasets import load_dataset
 from huggingface_hub import HfApi, HfFolder
+import matplotlib.pyplot as plt
 
 from data_structures import CustomImage, Sequence
 from utils import EXTENSIONS, parse_date_from_filepath, is_image, has_image_extension, replace_extension
@@ -96,7 +97,8 @@ class EvaluationDataset:
         image_list = [image for image in sorted(glob.glob(f"{self.datapath}/images/*")) if is_image(image)]
         annotations = [load_annotation(image_path) for image_path in image_list]
         timestamps = [parse_date_from_filepath(image_path).get("date", None) for image_path in image_list]
-        logging.info(f"No timestamp found on {timestamps.count(None)} images.")
+        self.nb_invalid_images = timestamps.count(None)
+        logging.info(f"No timestamp found on {self.nb_invalid_images} images.")
 
         # TODO : investigate storing the 3 lists above in an OrderedDict
         self.images_info = {
@@ -275,7 +277,7 @@ class EvaluationDataset:
         multi_img_sequences = [len(seq) for seq in self.sequences if len(seq) > 1]
         avg_nb_img_per_sequence = len(self.dataframe) / len(self.sequences) if len(self.sequences) != 0 else 0
         avg_nb_img_per_sequence_multi = sum(multi_img_sequences) / len(multi_img_sequences) if len(multi_img_sequences) != 0 else 0
-        
+
         return {
             "nb_images" : nb_images,
             "nb_true_sequences" : nb_true_sequences,
@@ -284,6 +286,21 @@ class EvaluationDataset:
             "nb_one_img_sequences" : len(one_img_sequences),
             "avg_nb_img_per_sequence_multi" : avg_nb_img_per_sequence_multi,
         }
+
+    def stat_plots(self):
+        sequence_lengths = [len(sequence) for sequence in self.sequences]
+
+        six_p = 0
+        lengths_distribution = [0] * (max(sequence_lengths) + 1)
+        for length in sequence_lengths:
+            if length > 4:
+                six_p += 1
+            lengths_distribution[length] += 1
+        plt.figure()
+        plt.yscale('log')
+        plt.hist(sequence_lengths, bins=max(sequence_lengths)+1, range=(0, max(sequence_lengths)+1), edgecolor='black')
+        plt.title("Sequence length distribution")
+        plt.show()
 
     def __len__(self):
         return len(self.dataframe)
@@ -295,14 +312,39 @@ class EvaluationDataset:
         return iter(self.sequences)
 
     def __repr__(self):
+        """
+        Print dataset info
+        """
         stats = self.compute_dataset_statistics()
+
+        total_sequences = len(self.sequences)
+        nb_images = stats.get('nb_images', 'N/A')
+        nb_true_sequences = stats.get('nb_true_sequences', 'N/A')
+        nb_false_sequences = total_sequences - nb_true_sequences if isinstance(nb_true_sequences, int) else 'N/A'
+        nb_true_images = stats.get('nb_true_images', 'N/A')
+        nb_false_images = nb_images - nb_true_images if isinstance(nb_images, int) and isinstance(nb_true_images, int) else 'N/A'
+        avg_per_seq = stats.get('avg_nb_img_per_sequence', 'N/A')
+        avg_per_seq_multi = stats.get('avg_nb_img_per_sequence_multi', 'N/A')
+        nb_one_img_sequences = stats.get('nb_one_img_sequences', 'N/A')
+
         repr_str = (
-            f"CustomDataset with {len(self.sequences)} sequences and {stats.get('nb_images', 'N/A')} images.\n"
-            f"Sequence Labels: {stats.get('nb_true_sequences', 'N/A')} True, {len(self.sequences) - stats.get('nb_true_sequences', 'N/A')} False\n"
-            f"Image Labels: {stats.get('nb_true_images', 'N/A')} True, {stats.get('nb_images', 'N/A') - stats.get('nb_true_images', 'N/A')} False\n"
-            f"Average number of images per sequence : {stats.get('avg_nb_img_per_sequence', 'N/A'):.1f}\n"
-            f"Average number of images per sequence (multiple images sequences only) : {stats.get('avg_nb_img_per_sequence_multi', 'N/A'):.1f}\n"
-            f"Number of sequences with only one image : {stats.get('nb_one_img_sequences', 'N/A')}\n"
+            f"+{'-'*48}+\n"
+            f"| {'CustomDataset Summary':^46} |\n"
+            f"+{'='*48}+\n"
+            f"| Total sequences                     | {total_sequences:>7} |\n"
+            f"| Total images                        | {nb_images:>7} |\n"
+            f"| Invalid images (invalid naming)     | {self.nb_invalid_images:>7} |\n"
+            f"+{'-'*48}+\n"
+            f"| Sequences with label=True           | {nb_true_sequences:>7} |\n"
+            f"| Sequences with label=False          | {nb_false_sequences:>7} |\n"
+            f"| Images with label=True              | {nb_true_images:>7} |\n"
+            f"| Images with label=False             | {nb_false_images:>7} |\n"
+            f"+{'-'*48}+\n"
+            f"| Avg images/sequence                 | {avg_per_seq:>7.1f} |\n"
+            f"| Avg images/sequence (multi only)    | {avg_per_seq_multi:>7.1f} |\n"
+            f"| Sequences with only 1 image         | {nb_one_img_sequences:>7} |\n"
+            f"+{'-'*48}+"
         )
 
         return repr_str
+
