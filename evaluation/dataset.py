@@ -239,11 +239,11 @@ class EvaluationDataset:
             hash_to_paths[img.hash].append(img.image_path)
 
         # Check for hash that have several path corresponding
-        duplicates = {h: paths for h, paths in hash_to_paths.items() if len(paths) > 1}
+        self.duplicates = {h: paths for h, paths in hash_to_paths.items() if len(paths) > 1}
 
-        if duplicates:
-            logging.warning(f"{len(duplicates.keys())} duplicate image hashes detected")
-            for h, paths in duplicates.items():
+        if self.duplicates:
+            logging.warning(f"{len(self.duplicates.keys())} duplicate image hashes detected")
+            for h, paths in self.duplicates.items():
                 logging.warning(f"Hash {h} found in {len(paths)} files:")
                 for path in paths:
                     logging.warning(f"  - {path}")
@@ -333,6 +333,7 @@ class EvaluationDataset:
             f"| Total images                        | {nb_images:>7} |\n"
             f"| Total sequences                     | {total_sequences:>7} |\n"
             f"| Invalid images (invalid naming)     | {self.nb_invalid_images:>7} |\n"
+            f"| Number of duplicates                | {len(self.duplicates.keys()):>7} |\n"
             f"+{'-'*48}+\n"
             f"| Sequences with label=True           | {nb_true_sequences:>7} |\n"
             f"| Sequences with label=False          | {nb_false_sequences:>7} |\n"
