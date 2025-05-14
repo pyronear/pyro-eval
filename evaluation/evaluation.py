@@ -98,11 +98,11 @@ class EvaluationPipeline:
         logging.info(f"Run ID: {self.run_id}")
         if "model" in subset:
             logging.info("Model Metrics:")
-            logging.info(f"  Precision: {format_metric(model_metrics.get('precision', 'N/A'))}")
-            logging.info(f"  Recall:    {format_metric(model_metrics.get('recall', 'N/A'))}")
-            logging.info(f"  F1 Score:  {format_metric(model_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"  Precision:        {format_metric(model_metrics.get('precision', 'N/A'))}")
+            logging.info(f"  Recall:           {format_metric(model_metrics.get('recall', 'N/A'))}")
+            logging.info(f"  F1 Score:         {format_metric(model_metrics.get('f1_score', 'N/A'))}")
             logging.info(f"  False positives:  {format_metric(model_metrics.get('fp', 'N/A'))}")
-            logging.info(f"  True positives:  {format_metric(model_metrics.get('tp', 'N/A'))}")
+            logging.info(f"  True positives:   {format_metric(model_metrics.get('tp', 'N/A'))}")
             logging.info(f"  False negatives:  {format_metric(model_metrics.get('fn', 'N/A'))}")
 
         engine_image_metrics = self.metrics.get("engine_metrics", {}).get("image_metrics", {})

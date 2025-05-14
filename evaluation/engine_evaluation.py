@@ -185,6 +185,12 @@ class EngineEvaluator:
         tn_sequences = sequence_df[(sequence_df['label'] == False) & (sequence_df['has_detection'] == False)]
         metrics = compute_metrics(false_positives=len(fp_sequences), true_positives=len(tp_sequences), false_negatives=len(fn_sequences))
 
+        predictions = {
+            "tp" : tp_sequences["sequence_id"].to_list(),
+            "fn" : fn_sequences["sequence_id"].to_list(),
+            "fp" : fp_sequences["sequence_id"].to_list(),
+            "tn" : tn_sequences["sequence_id"].to_list(),
+        }
         logging.info("Sequence-level metrics")
         logging.info(f"Precision: {metrics['precision']:.3f}, Recall: {metrics['recall']:.3f}, F1: {metrics['f1']:.3f}")
         logging.info(f"TP: {len(tp_sequences)}, FP: {len(fp_sequences)}, FN: {len(fn_sequences)}, TN: {len(tn_sequences)}")
@@ -199,11 +205,12 @@ class EngineEvaluator:
             "precision" : metrics["precision"],
             "recall" : metrics["recall"],
             "f1" : metrics["f1"],
-            "tp": len(tp_sequences),
-            "fp": len(fp_sequences),
-            "fn": len(fn_sequences),
-            "tn": len(tn_sequences),
-            "avg_detection_delay": avg_detection_delay if not tp_sequences['detection_delay'].isnull().all() else None
+            "tp" : len(tp_sequences),
+            "fp" : len(fp_sequences),
+            "fn" : len(fn_sequences),
+            "tn" : len(tn_sequences),
+            "avg_detection_delay": avg_detection_delay if not tp_sequences['detection_delay'].isnull().all() else None,
+            "predictions" : predictions,
         }
 
     def evaluate(self):
