@@ -87,7 +87,12 @@ class EvaluationPipeline:
 
     def display_metrics(self, subset = ["model", "engine"]):
         def format_metric(value):
-            return f"{value:.2f}" if isinstance(value, (int, float)) else "N/A"
+            if isinstance(value, float):
+                return f"{value:.2f}" 
+            elif isinstance(value, int):
+                return f"{value}" 
+            else:
+                return "N/A"
 
         model_metrics = self.metrics.get("model_metrics", {})
         logging.info(f"Run ID: {self.run_id}")
@@ -107,11 +112,11 @@ class EvaluationPipeline:
             logging.info("    Image Metrics:")
             logging.info(f"       Precision: {format_metric(engine_image_metrics.get('precision', 'N/A'))}")
             logging.info(f"       Recall:    {format_metric(engine_image_metrics.get('recall', 'N/A'))}")
-            logging.info(f"       F1 Score:  {format_metric(engine_image_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"       F1 Score:  {format_metric(engine_image_metrics.get('f1', 'N/A'))}")
             logging.info("    Sequence Metrics:")
             logging.info(f"       Precision: {format_metric(engine_sequence_metrics.get('precision', 'N/A'))}")
             logging.info(f"       Recall:    {format_metric(engine_sequence_metrics.get('recall', 'N/A'))}")
-            logging.info(f"       F1 Score:  {format_metric(engine_sequence_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"       F1 Score:  {format_metric(engine_sequence_metrics.get('f1', 'N/A'))}")
             logging.info(f"       Averagde Detecion Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}")
 
     def generate_run_id(self):
