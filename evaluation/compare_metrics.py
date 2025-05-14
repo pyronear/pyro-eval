@@ -31,6 +31,8 @@ def build_dataframe(run_dirs, csv_path=None):
             "model_path" : config.get("model_path"),
             "conf_thresh" : config.get("conf_thresh"),
             "nb_consecutive_frames" : config.get("nb_consecutive_frames"),
+            "iou" : config.get("iou"),
+            "max_bbox_size" : config.get("max_bbox_size"),
             "model_precision" : model_metrics.get("precision"),
             "model_recall" : model_metrics.get("recall"),
             "model_f1" : model_metrics.get("f1"),
@@ -68,7 +70,7 @@ def vizualize(df):
     plt.tight_layout()
     plt.show()
 
-def export_google_sheet(new_df, sheet_name, key_column="run_id"):
+def export_google_sheet(df, sheet_name, key_column="run_id"):
     """
     Dumps a csv uin a google sheet
     If the sheet already exists, update the data and upload
@@ -89,28 +91,49 @@ def export_google_sheet(new_df, sheet_name, key_column="run_id"):
         logging.error(f"Unable to open Google sheet : {e}")
 
     worksheet = spreadsheet.sheet1
-    new_df[key_column] = new_df[key_column].astype(str)
+    df[key_column] = df[key_column].astype(str)
 
-    # Check existing content
-    try:
-        existing_df = get_as_dataframe(worksheet).dropna(how="all")
-        existing_df[key_column] = existing_df[key_column].astype(str)
-    except Exception:
-        # Empty sheet or non-existent
-        existing_df = pd.DataFrame(columns=new_df.columns)
+    model_cols = ["run_id", "model_path", "model_precision", "model_recall", "model_f1", "model_fp", "model_tp", "model_fn"]
 
-    # Filter old dataframe to remove runs present in the new dataframe
-    filtered_existing = existing_df[~existing_df[key_column].isin(new_df[key_column])]
-    # Concatenate new dataframe to the old one
-    final_df = pd.concat([filtered_existing, new_df], ignore_index=True)
+    engine_cols = ["run_id", "seq_precision", "seq_recall", "seq_f1", "seq_fp", "seq_tp", "seq_fn",
+                "img_precision", "img_recall", "img_f1", "img_fp", "img_tp", "img_fn", "model_path", "conf_thresh", "nb_consecutive_frames", "iou", "max_bbox_size",]
 
-    # Write everything in the sheet
-    worksheet.clear()
-    set_with_dataframe(worksheet, final_df)
+    df_model = df[model_cols].copy()
+    df_engine = df[engine_cols].copy()
+    logging.info("Updating google sheet")
 
-    nb_updated = len(existing_df) - len(filtered_existing)
-    nb_added = len(final_df) - len(existing_df)
-    logging.info("Google sheet updated")
+    def update_worksheet(sheet_name, new_df, key_column="run_id"):
+        try:
+            worksheet = spreadsheet.worksheet(sheet_name)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=200, cols=50)
+
+        # Retrieve existing content
+        try:
+            existing_df = get_as_dataframe(worksheet).dropna(how="all")
+            existing_df[key_column] = existing_df[key_column].astype(str)
+        except Exception:
+            existing_df = pd.DataFrame(columns=new_df.columns)
+        
+        new_df[key_column] = new_df[key_column].astype(str)
+
+        # Filter old dataframe to remove runs present in the new dataframe
+        filtered_existing = existing_df[~existing_df[key_column].isin(new_df[key_column])]
+
+        # Concatenate new dataframe to the old one
+        final_df = pd.concat([filtered_existing, new_df], ignore_index=True)
+
+        # Write everything in the sheet
+        worksheet.clear()
+        set_with_dataframe(worksheet, final_df)
+
+        nb_updated = len(existing_df) - len(filtered_existing)
+        nb_added = len(final_df) - len(existing_df)
+        logging.info(f"{sheet_name} sheet updated")
+        return (nb_updated, nb_added)
+
+    update_worksheet("Model", df_model)
+    nb_updated, nb_added = update_worksheet("Engine", df_engine)
     logging.info(f"{nb_added} runs added.")
     logging.info(f"{nb_updated} runs updated.")
 
