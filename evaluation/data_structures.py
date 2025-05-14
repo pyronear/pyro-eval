@@ -51,23 +51,16 @@ class CustomImage:
         Returns a list of bounding boxes coordinates in xyxy format.
         """
         # Handle empty case safely
-        print("def boxes_xyxy")
-        print("self.boxes")
-        print(self.boxes)
         if not self.boxes:
             return []
-        # try:
-        # Remove trailing \n, whitespaces, first value of the predicted array (class id) for each box
-        boxes = [np.array(box.strip().split(" ")[1:5]).astype(float) for box in self.boxes]
-        print("boxes")
-        print(boxes)
-        # Translate into xyxy coordinates and return
-        print("[xywh2xyxy(box) for box in boxes]")
-        print([xywh2xyxy(box) for box in boxes])
-        return [xywh2xyxy(box) for box in boxes]
-        # except Exception as e:
-        #     logging.warning(f"Failed to parse boxes for image {self.image_path}: {e}")
-        #     return []
+        try:
+            # Remove trailing \n, whitespaces, first value of the predicted array (class id) for each box
+            boxes = [np.array(box.strip().split(" ")[1:5]).astype(float) for box in self.boxes]
+            # Translate into xyxy coordinates and return
+            return [xywh2xyxy(box) for box in boxes]
+        except Exception as e:
+            logging.warning(f"Failed to parse boxes for image {self.image_path}: {e}")
+            return []
 
 class Sequence:
     """
