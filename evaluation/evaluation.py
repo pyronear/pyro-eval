@@ -8,10 +8,9 @@ from typing import List
 from dataset import EvaluationDataset
 from engine_evaluation import EngineEvaluator
 from model_evaluation import ModelEvaluator
-from utils import get_dict_types, make_dict_json_compatible
+from utils import make_dict_json_compatible
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 
 class EvaluationPipeline:
     def __init__(self,
@@ -100,7 +99,7 @@ class EvaluationPipeline:
             logging.info("Model Metrics:")
             logging.info(f"  Precision:        {format_metric(model_metrics.get('precision', 'N/A'))}")
             logging.info(f"  Recall:           {format_metric(model_metrics.get('recall', 'N/A'))}")
-            logging.info(f"  F1 Score:         {format_metric(model_metrics.get('f1_score', 'N/A'))}")
+            logging.info(f"  F1 Score:         {format_metric(model_metrics.get('f1', 'N/A'))}")
             logging.info(f"  False positives:  {format_metric(model_metrics.get('fp', 'N/A'))}")
             logging.info(f"  True positives:   {format_metric(model_metrics.get('tp', 'N/A'))}")
             logging.info(f"  False negatives:  {format_metric(model_metrics.get('fn', 'N/A'))}")
