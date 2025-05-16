@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Optional, List
 
@@ -26,6 +27,7 @@ class CustomImage:
         self.timestamp = parse_date_from_filepath(self.image_path)["date"]
         self.hash = self.compute_hash()
         self.label: bool = len(self.boxes) > 0
+        self.name: str = os.path.basename(self.image_path)
     
     def load(self) -> PILImage.Image:
         """
