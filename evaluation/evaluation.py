@@ -18,14 +18,12 @@ class EvaluationPipeline:
                  config: dict = {},
                  run_id: str = "",
                  resume: bool = False,
-                 device : str = None,
-                 eval : List[str] = ["model", "engine"]):
+                 device : str = None):
 
         self.dataset = dataset
         self.config = self.get_config(config)
         self.run_id = run_id or self.generate_run_id()
         self.resume = resume
-        self.eval = eval # list of evaluation to perform, all by default
         self.metrics = {}
 
         # Evaluate the model performance on single images
@@ -45,14 +43,15 @@ class EvaluationPipeline:
         config.setdefault("conf_thresh", 0.15)
         config.setdefault("max_bbox_size", 0.4)
         config.setdefault("iou", 0.1)
+        config.setdefault("eval", ["model", "engine"])
         return config
 
     def run(self):
-        if "model" in self.eval:
+        if "model" in self.config["eval"]:
             logging.info("Compute model metrics")
             self.metrics["model_metrics"] = self.model_evaluator.evaluate()
             self.display_metrics(subset=["model"])
-        if "engine" in self.eval:
+        if "engine" in self.config["eval"]:
             logging.info("Compute engine metrics")
             self.metrics["engine_metrics"] = self.engine_evaluator.evaluate()
 
