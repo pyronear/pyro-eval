@@ -75,7 +75,7 @@ class EvaluationPipeline:
 
         dataset_info = {
             "ID": self.dataset.dataset_ID,
-            "datapath": self.dataset.datapath,
+            "datapath": str(self.dataset.datapath),
             "Number of Images": len(self.dataset),
             "NUmber of Sequences": len(self.dataset.sequences),
         }
