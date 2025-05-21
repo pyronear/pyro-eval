@@ -1,10 +1,8 @@
 import json
 import logging
-import os
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import List
 
 from .dataset import EvaluationDataset
 from .engine_evaluation import EngineEvaluator
@@ -66,10 +64,7 @@ class EvaluationPipeline:
         """
         Save results in a json file
         """
-        # result_file = f"evaluation/data/results/{self.run_id}/metrics.json"
         filepath_result = save_dir / self.run_id / "metrics.json"
-        result_file = f"./data/evaluation/results/{self.run_id}/metrics.json"
-        # os.makedirs(os.path.dirname(result_file), exist_ok=True)
         filepath_result.parent.mkdir(parents=True, exist_ok=True)
         logging.info(f"Saving metrics in {filepath_result}")
 
