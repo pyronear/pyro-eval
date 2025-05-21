@@ -114,14 +114,8 @@ class EvaluationDataset:
             return boxes
 
         image_filepaths = list(Path(self.datapath / "images").glob("**/*.jpg"))
-        print(f"image_filepaths: {len(image_filepaths)}")
-        image_list = [
-            image
-            # for image in sorted(glob.glob(f"{self.datapath}/images/*"))
-            for image in sorted(image_filepaths)
-            if is_image(image)
-        ]
-        print(f"image_list: {len(image_list)}")
+        logging.info(f"Found {len(image_filepaths)} images in dataset")
+        image_list = [image for image in sorted(image_filepaths) if is_image(image)]
         annotations = [load_annotation(image_path) for image_path in image_list]
         timestamps = [
             parse_date_from_filepath(image_path).get("date", None)

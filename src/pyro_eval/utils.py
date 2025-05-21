@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime
+from pathlib import PosixPath
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -65,6 +66,8 @@ def make_dict_json_compatible(data):
         return [make_dict_json_compatible(item) for item in data]
     elif isinstance(data, np.bool_):
         return "True" if data else "False"
+    elif isinstance(data, PosixPath):
+        return str(data)
     elif isinstance(data, Timedelta):
         # Convertir Timedelta en chaîne de caractères
         return str(data)
