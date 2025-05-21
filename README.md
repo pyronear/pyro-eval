@@ -22,13 +22,17 @@ poetry install
 
 ## Usage
 
-### launcher.py
+### run_evaluation.py
 
 This script runs the evaluation of the models on the provided test dataset.
 
 ```bash
-poetry run python ./scripts/launcher.py \
-  --
+poetry run python ./scripts/run_evaluation.py \
+  --dir-models ./data/models/ \
+  --dir-dataset ./data/datasets/wildfire_test/ \
+  --dir-save ./data/evaluation/results/ \
+  --device gpu \
+  --loglevel info
 ```
 
 ## Evaluation Pipeline Design
