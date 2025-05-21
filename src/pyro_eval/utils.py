@@ -1,38 +1,41 @@
-import re
 import os
+import re
 from datetime import datetime
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from pandas import Timedelta
 from ultralytics import YOLO
 
 EXTENSIONS = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
 
+
 def is_image(image_path):
     return os.path.isfile(image_path) and has_image_extension(image_path)
+
 
 def has_image_extension(image_path):
     return os.path.splitext(image_path)[-1].lower() in EXTENSIONS
 
+
 def parse_date_from_filepath(filepath):
-    '''Extracts date from filename, typcally : pyronear_sdis-07_brison-200_2024-01-26t11-13-37.jpg'''
-    
+    """Extracts date from filename, typcally : pyronear_sdis-07_brison-200_2024-01-26t11-13-37.jpg"""
+
     filename = os.path.basename(filepath)
     prefix, file_datetime = None, None
 
-    pattern = r'_(\d{4})_(\d{2})_(\d{2})t(\d{2})_(\d{2})_(\d{2})\.(jpg|png)$'
+    pattern = r"_(\d{4})_(\d{2})_(\d{2})t(\d{2})_(\d{2})_(\d{2})\.(jpg|png)$"
 
     # Search for the pattern in the filename
     match = re.search(pattern, filename.lower())
 
     if not match:
-        pattern = r'_(\d{4})-(\d{2})-(\d{2})t(\d{2})-(\d{2})-(\d{2})\.(jpg|png)$'
+        pattern = r"_(\d{4})-(\d{2})-(\d{2})t(\d{2})-(\d{2})-(\d{2})\.(jpg|png)$"
         match = re.search(pattern, filename.lower())
 
     if match:
         # Extract components
-        prefix = filename[:match.start()]
+        prefix = filename[: match.start()]
         year = int(match.group(1))
         month = int(match.group(2))
         day = int(match.group(3))
@@ -44,18 +47,18 @@ def parse_date_from_filepath(filepath):
         file_datetime = datetime(year, month, day, hour, minute, second)
 
     return {
-        "prefix": prefix, 
+        "prefix": prefix,
         "date": file_datetime,
     }
 
 
 def make_dict_json_compatible(data):
-    '''
+    """
     Replaces values to be able dump a dict in a json:
         - Replace True/False by "true"/"false"
         - Convert Timedelta to str
         - Convert int64 to int
-    '''
+    """
     if isinstance(data, dict):
         return {key: make_dict_json_compatible(value) for key, value in data.items()}
     elif isinstance(data, list):
@@ -71,31 +74,37 @@ def make_dict_json_compatible(data):
     else:
         return data
 
+
 def metrics_visualization(metrics, sequence_df):
     _, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     # Image-level confusion matrix
-    confusion_matrix = np.array([[metrics["tn"], metrics["fp"]], [metrics["fn"], metrics["tp"]]])
-    cax = axes[0].matshow(confusion_matrix, cmap='Blues')
-    axes[0].set_title('Image Confusion Matrix')
-    axes[0].set_xlabel('Predicted')
-    axes[0].set_ylabel('Actual')
+    confusion_matrix = np.array(
+        [[metrics["tn"], metrics["fp"]], [metrics["fn"], metrics["tp"]]]
+    )
+    cax = axes[0].matshow(confusion_matrix, cmap="Blues")
+    axes[0].set_title("Image Confusion Matrix")
+    axes[0].set_xlabel("Predicted")
+    axes[0].set_ylabel("Actual")
 
     # Annotate the confusion matrix
     for (i, j), val in np.ndenumerate(confusion_matrix):
-        axes[0].text(j, i, f'{val}', ha='center', va='center', color='black')
+        axes[0].text(j, i, f"{val}", ha="center", va="center", color="black")
 
     plt.colorbar(cax, ax=axes[0])
 
     # Sequence detection delay histogram
-    detection_delays = sequence_df[sequence_df['label'] & sequence_df['has_detection']]['detection_delay'].dt.total_seconds()
-    axes[1].hist(detection_delays, bins=15, color='blue', alpha=0.7)
-    axes[1].set_title('Detection Delay (Seconds)')
-    axes[1].set_xlabel('Seconds since sequence start')
-    axes[1].set_ylabel('Count')
+    detection_delays = sequence_df[sequence_df["label"] & sequence_df["has_detection"]][
+        "detection_delay"
+    ].dt.total_seconds()
+    axes[1].hist(detection_delays, bins=15, color="blue", alpha=0.7)
+    axes[1].set_title("Detection Delay (Seconds)")
+    axes[1].set_xlabel("Seconds since sequence start")
+    axes[1].set_ylabel("Count")
 
     plt.tight_layout()
     plt.show()
+
 
 def xywh2xyxy(x):
     """Function to convert bounding box format from center to top-left corner"""
@@ -138,6 +147,7 @@ def box_iou(box1: np.ndarray, box2: np.ndarray, eps: float = 1e-7):
     # IoU = inter / (area1 + area2 - inter)
     return inter / ((a2 - a1).prod(1) + (b2 - b1).prod(1)[:, None] - inter + eps)
 
+
 def find_matches(gt_boxes, pred_boxes, iou):
     """
     Given a list of ground truth boxes, predicted boxes and a threshold iou, computes matches and
@@ -150,14 +160,16 @@ def find_matches(gt_boxes, pred_boxes, iou):
     for pred_box in pred_boxes:
         if gt_boxes:
             # Compute matches
-            matches = np.array([box_iou(pred_box, gt_box) > iou for gt_box in gt_boxes], dtype=bool)
+            matches = np.array(
+                [box_iou(pred_box, gt_box) > iou for gt_box in gt_boxes], dtype=bool
+            )
 
             # Check if any match exists
             if matches.any():
                 nb_tp += 1
                 matches = matches.reshape(gt_matches.shape)
                 # Logical OR operation in order to update gt_matches with new matches (new True value in the array)
-                gt_matches = np.logical_or(gt_matches, matches)  
+                gt_matches = np.logical_or(gt_matches, matches)
             else:
                 nb_fp += 1
         else:
@@ -165,8 +177,9 @@ def find_matches(gt_boxes, pred_boxes, iou):
 
     if gt_boxes:
         nb_fn += len(gt_boxes) - np.sum(gt_matches)
-    
+
     return (nb_fp, nb_tp, nb_fn)
+
 
 def export_model(model_path: str):
     """
@@ -182,27 +195,42 @@ def export_model(model_path: str):
 
     return onnx_path
 
+
 def replace_extension(input_string, list_input_ext, output_ext):
     """
     Function that allows to convert a filename extension with multiple input extensions possible
     TODO: properly manage uppercase extensions
     """
     i = 0
-    while (not input_string.endswith(".txt") or i == len(list_input_ext) - 1):
+    while not input_string.endswith(".txt") or i == len(list_input_ext) - 1:
         input_string = input_string.replace(list_input_ext[i], output_ext)
         i += 1
     return input_string
 
+
 def compute_metrics(false_positives, true_positives, false_negatives):
-    precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0.0
-    recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
-    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+    precision = (
+        true_positives / (true_positives + false_positives)
+        if (true_positives + false_positives) > 0
+        else 0.0
+    )
+    recall = (
+        true_positives / (true_positives + false_negatives)
+        if (true_positives + false_negatives) > 0
+        else 0.0
+    )
+    f1 = (
+        2 * (precision * recall) / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
     return {
-        "precision" : precision,
-        "recall" : recall,
-        "f1" : f1,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
     }
+
 
 def get_dict_types(d):
     def infer_type(value):
@@ -214,5 +242,5 @@ def get_dict_types(d):
             return list[element_type]
         else:
             return type(value)
-    
+
     return {k: infer_type(v) for k, v in d.items()}

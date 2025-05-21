@@ -1,6 +1,7 @@
-from dataset import EvaluationDataset
-from model import Model
-from utils import compute_metrics, find_matches
+from .dataset import EvaluationDataset
+from .model import Model
+from .utils import compute_metrics, find_matches
+
 
 class ModelEvaluator:
     def __init__(self, dataset: EvaluationDataset, config={}, device=None):
@@ -15,13 +16,13 @@ class ModelEvaluator:
 
         # Retrieve images from the dataset
         self.images = self.dataset.get_all_images()
-        
+
         # Track image prediction status for further analysis
         self.predictions = {
-            "tp" : [],
-            "tn" : [],
-            "fp" : [],
-            "fn" : [],
+            "tp": [],
+            "tn": [],
+            "fp": [],
+            "fn": [],
         }
 
     def run_predictions(self):
@@ -50,7 +51,7 @@ class ModelEvaluator:
 
         nb_fp, nb_tp, nb_fn = 0, 0, 0
 
-        for image  in self.images:
+        for image in self.images:
             # Labels
             gt_boxes = image.boxes_xyxy
             # Predictions
@@ -61,14 +62,16 @@ class ModelEvaluator:
             nb_fp += fp
             nb_tp += tp
             nb_fn += fn
-        metrics = compute_metrics(false_positives=nb_fp, true_positives=nb_tp, false_negatives=nb_fn)
+        metrics = compute_metrics(
+            false_positives=nb_fp, true_positives=nb_tp, false_negatives=nb_fn
+        )
 
         return {
             "precision": metrics["precision"],
             "recall": metrics["recall"],
             "f1": metrics["f1"],
-            "fp" : int(nb_fp),
-            "tp" : int(nb_tp),
-            "fn" : int(nb_fn),
-            "predictions" : self.predictions,
-            }
+            "fp": int(nb_fp),
+            "tp": int(nb_tp),
+            "fn": int(nb_fn),
+            "predictions": self.predictions,
+        }

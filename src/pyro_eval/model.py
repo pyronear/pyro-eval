@@ -4,16 +4,17 @@ import os
 import numpy as np
 import onnxruntime
 import torch
-from huggingface_hub import hf_hub_download, HfApi, HfFolder
+from huggingface_hub import HfApi, HfFolder, hf_hub_download
 from huggingface_hub.utils import HfHubHTTPError
 from ultralytics import YOLO
 
-from data_structures import CustomImage
+from .data_structures import CustomImage
+
 
 class Model:
     def __init__(self, model_path, inference_params, device=None):
         self.model_path = model_path
-    
+
         self.model = self.load_model()
         self.device = self.get_device(device)
         self.model.to(self.device)
@@ -22,7 +23,9 @@ class Model:
 
     def load_model(self):
         if not self.model_path:
-            raise ValueError(f"No model provided for evaluation, path needs to be specified.")
+            raise ValueError(
+                f"No model provided for evaluation, path needs to be specified."
+            )
 
         logging.info(f"Loading model : {self.model_path}")
         if os.path.isfile(self.model_path):
@@ -51,7 +54,9 @@ class Model:
         try:
             session = onnxruntime.InferenceSession(self.model_path)
         except Exception as e:
-            raise RuntimeError(f"Failed to load the ONNX model from {self.model_path}: {str(e)}") from e
+            raise RuntimeError(
+                f"Failed to load the ONNX model from {self.model_path}: {str(e)}"
+            ) from e
 
         logging.info(f"ONNX model loaded successfully from {self.model_path}")
         self.format = "onnx"
@@ -65,7 +70,9 @@ class Model:
         repo_id = self.model_path.split("https://huggingface.co/")[-1]
         filename = f"{os.path.basename(repo_id)}.pt"
         if token is None:
-            raise ValueError("Error : no Hugging Face found. Please authenticate with `huggingface-cli login`.")
+            raise ValueError(
+                "Error : no Hugging Face found. Please authenticate with `huggingface-cli login`."
+            )
         try:
             hf_hub_download(repo_id=repo_id, filename=filename)
         except HfHubHTTPError as e:
@@ -74,10 +81,12 @@ class Model:
         # Check model existence on HuggingFace
         api = HfApi()
         # Remove the first part of the url
-        
+
         model_info = api.model_info(repo_id, token=token)
         if not model_info:
-            raise ValueError(f"Error : {self.model_path} doesn't exist or is not accessible.")
+            raise ValueError(
+                f"Error : {self.model_path} doesn't exist or is not accessible."
+            )
 
         self.format = "hf"
         # All checks are correct, return the model
@@ -98,15 +107,15 @@ class Model:
 
     def set_inference_params(self, inference_params):
         return {
-            "conf" : inference_params.get("conf", 0.05),
-            "iou" : inference_params.get("iou", 0),
-            "imgsz" : inference_params.get("imgsz", 1024),
+            "conf": inference_params.get("conf", 0.05),
+            "iou": inference_params.get("iou", 0),
+            "imgsz": inference_params.get("imgsz", 1024),
         }
 
     def inference(self, image: CustomImage):
         """
         Reads an image and run the model on it.
-        """        
+        """
         pil_image = image.load()
 
         if self.format == "onnx":
@@ -123,7 +132,7 @@ class Model:
                     conf=self.inference_params["conf"],
                     iou=self.inference_params["iou"],
                     imgsz=self.inference_params["imgsz"],
-                    device=self.device
+                    device=self.device,
                 )[0]
 
                 prediction = results.boxes.xyxyn.cpu().numpy()
