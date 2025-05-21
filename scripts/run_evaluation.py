@@ -81,7 +81,10 @@ if __name__ == "__main__":
         )
 
         # Instanciate Dataset
-        dataset = EvaluationDataset(datapath=dir_dataset)
+        dataset = EvaluationDataset(
+            datapath=dir_dataset,
+            dataset_ID=dir_dataset.stem,
+        )
         dataset.dump()
 
         # Launch Evaluation

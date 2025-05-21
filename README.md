@@ -31,7 +31,7 @@ poetry run python ./scripts/run_evaluation.py \
   --dir-models ./data/models/ \
   --dir-dataset ./data/datasets/wildfire_test/ \
   --dir-save ./data/evaluation/results/ \
-  --device gpu \
+  --device cuda \
   --loglevel info
 ```
 
