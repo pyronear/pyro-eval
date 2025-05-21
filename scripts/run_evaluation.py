@@ -17,13 +17,13 @@ def make_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dir-models",
-        help="directory to the YOLO models to evaluate",
+        help="directory containing the YOLO models to evaluate",
         type=Path,
         required=True,
     )
     parser.add_argument(
         "--dir-dataset",
-        help="directory to the ultralytics dataset to evaluate on",
+        help="directory containing the ultralytics dataset to evaluate the models on",
         type=Path,
         required=True,
     )
