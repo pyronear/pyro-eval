@@ -1,40 +1,61 @@
-# Evaluation Pipeline
+# pyro-eval
+
+Library to evaluate Pyronear ML models 🔥
 
 ## Context
 
-This module aims at providing an evaluation pipeline to measure and commpare the performance of pyronear algorithms.
-It is split in two parts:
+This module aims at providing an evaluation pipeline to measure and commpare
+the performance of pyronear algorithms. It is split in two parts:
+
 - Dataset management
 - Metrics computation
 
 ## Installation
-Make sure you have [Poetry](https://python-poetry.org/docs/) installed, then clone this repo and install dependencies:
+
+Make sure you have [Poetry](https://python-poetry.org/docs/) installed, then
+clone this repo and install dependencies:
 
 ```bash
-git clone https://github.com/pyronear/vision-rd.git
-cd wildfire-evaluation
+git clone git@github.com:earthtoolsmaker/pyro-eval.git
 poetry install
 ```
 
 ## Usage
 
-In order to launch evaluation you need to configurate `launcher.py` and run the following command:
-```bash
-poetry run python evaluation/launcher.py
-```
-`launcher.py` configuration is detailed below.
+### launcher.py
 
-The evaluation pipeline is composed of two steps: data preparation and metrics computation, respectively managed by the `EvaluationDataset` and `EvaluationPipeline` classes.
+This script runs the evaluation of the models on the provided test dataset.
+
+```bash
+poetry run python ./scripts/launcher.py \
+  --
+```
+
+## Evaluation Pipeline Design
+
+The evaluation pipeline is composed of two steps: data preparation and metrics
+computation, respectively managed by the `EvaluationDataset` and
+`EvaluationPipeline` classes.
 
 ### EvaluationDataset
 
-The `EvaluationDataset` class helps creating a custom dataset object suited for metric computation
-The object is instanciated from an existing image folder or a hugging face repo. A dataset ID can be passed as input, by default the id will be computed from the current date and a custom hash of the dataset.
-When instanciating from a local folder, the following rules must be follow to ensure a proper functioning of the class:
-- Root folder must contain one subfolder named `images` and one named `labels`
-- `images` folder must contain the images files, named with the following convention : `*_Y-m-dTH-M-S.jpg`, for example `seq_44_sdis-07_brison-200_2024-02-16T16-38-22.jpg``
-- `labels` folder must contain a label .txt file for each image with the coordinates of the groundtruth bounding box
+The `EvaluationDataset` class helps creating a custom dataset object suited for
+metric computation.
 
+The object is instanciated from an existing image folder or a hugging face
+repo. A dataset ID can be passed as input, by default the id will be computed
+from the current date and a custom hash of the dataset.
+When instanciating from a local folder, the following rules must be follow to
+ensure a proper functioning of the class:
+
+- Root folder must contain one subfolder named `images` and one named `labels`
+- `images` folder must contain the images files, named with the following
+convention : `*_Y-m-dTH-M-S.jpg`, for example
+`seq_44_sdis-07_brison-200_2024-02-16T16-38-22.jpg``
+- `labels` folder must contain a label .txt file for each image with the
+coordinates of the groundtruth bounding box
+
+```txt
 dataset
 ├── images
 │   ├── image1.jpg
@@ -44,6 +65,7 @@ dataset
 │   ├── image1.txt
 │   └── image2.txt
 │   └── image2.txt
+```
 
 ```python
 datapath = "path/to/dataset"
@@ -53,7 +75,8 @@ dataset = EvaluationDataset(datapath, dataset_ID=dataset_ID)
 
 ### EvaluationPipeline
 
-The EvaluationPipeline class helps launching the evaluation on a given dataset. The evaluation is launched as follows:
+The EvaluationPipeline class helps launching the evaluation on a given dataset.
+The evaluation is launched as follows:
 
 ```python
 evaluation = EvaluationPipeline(dataset=dataset)
@@ -61,15 +84,21 @@ evaluation.run()
 evaluation.save_metrics()
 ```
 
-The complete evaluation is composed of two part : `ModelEvaluator`, which provides metrics on the model performance alone, and `EngineEvaluator` which provides metrics on the whole detection pipeline in the PyroEngine. 
+The complete evaluation is composed of two part : `ModelEvaluator`, which
+provides metrics on the model performance alone, and `EngineEvaluator` which
+provides metrics on the whole detection pipeline in the PyroEngine. 
 
 The object can be instanciated with the following parameters as input:
+
 - `self.dataset` : `EvaluationDataset` object
 - `self.config` : config dictionary as described below
 - `self.run_id` : ID of the run, will be generated if not specified
-- `self.resume` : if True, we check for existing results in the result folder associated to this run_id 
+- `self.resume` : if True, we check for existing results in the result folder
+associated to this run_id 
 
-`config` is a dictionnary that describes the run configuration, if not in the dictionnary, the parameters will take the default values shown below.
+`config` is a dictionnary that describes the run configuration, if not in the
+dictionnary, the parameters will take the default values shown below.
+
 ```json
 {
     "nb_consecutive_frames" : 4,  # Number of consecutive frames taken into accoun in the Engine
@@ -82,7 +111,8 @@ The object can be instanciated with the following parameters as input:
 
 ### Launcher configuration
 
-The evaluation can be launched on several configuration at once. `launcher.py` is used to configure the runs:
+The evaluation can be launched on several configuration at once. `launcher.py`
+is used to configure the runs:
 
 ```python
 configs = [
@@ -109,29 +139,34 @@ configs = [
 
 ### Results
 
-Metrics are saved in the `results` folder, in a subdirectory named as the run_ID.
-The data is stored in a json file with the following content.
+Metrics are saved in the `results` folder, in a subdirectory named as the
+run_ID. The data is stored in a json file with the following content.
+
 The file contains:
-- model_metrics : result of ModelEvaluator
-- engine_metrics : result of EngineEvaluator
-- config : run configuration
-- dataset : dataset information
+
+- __model_metrics__ : result of ModelEvaluator
+- __engine_metrics__ : result of EngineEvaluator
+- __config__ : run configuration
+- __dataset__ : dataset information
 
 ## Useful definitions
 
 ### EvaluationDataset()
-`dataset = EvaluationDataset(datapath)`: 
+
+`dataset = EvaluationDataset(datapath)`:
 - `dataset.sequences`: list of image Sequence within the dataset. 
 - `dataset.hash`: hash of the dataset
 - `dataset.dataframe`: pandas DataFrame describing the dataset
 
 ### Sequence()
+
 `Sequence` : object that represents a sequence of images.
 - `sequence.images`: list of CustomImage objects, corresponding to image belonging to a single sequence
 - `sequence.sequence_id`: name of the sequence (name of the first image without extension)
 - `sequence.sequence_start`: timestamp of the first image of the sequence
 
 ### CustomImage()
+
 `CustomImage`: object describing an image
 - `image.image_path`: file path
 - `image.sequence_id`: name of the sequence the image belongs to
