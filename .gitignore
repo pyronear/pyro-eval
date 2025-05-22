@@ -1,2 +1,6 @@
-data
+data/datasets/**/
+data/evaluation/**/
+data/models/**/
+data/models/*.pt
+data/models/*.onnx
 __pycache__
