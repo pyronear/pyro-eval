@@ -20,6 +20,14 @@ git clone git@github.com:earthtoolsmaker/pyro-eval.git
 poetry install
 ```
 
+One can use the default `./data` folder to store datasets and models to run
+evaluation on.
+
+__Models__: One can use the `./data/models/` folder to store models to evaluate.
+__Datasets__: One can use the `./data/datasets/` folder to store the datasets.
+__Evaluation Results__: By default, the results of the evaluation runs are
+stored under `./data/evaluation/`.
+
 ## Usage
 
 ### run_evaluation.py
