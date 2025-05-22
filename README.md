@@ -30,7 +30,7 @@ This script runs the evaluation of the models on the provided test dataset.
 poetry run python ./scripts/run_evaluation.py \
   --dir-models ./data/models/ \
   --dir-dataset ./data/datasets/wildfire_test/ \
-  --dir-save ./data/evaluation/results/ \
+  --dir-save ./data/evaluation/runs/ \
   --device cuda \
   --loglevel info
 ```

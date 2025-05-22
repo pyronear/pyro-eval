@@ -31,7 +31,7 @@ def make_cli_parser() -> argparse.ArgumentParser:
         "--dir-save",
         help="directory to save the results",
         type=Path,
-        default=Path("./data/evaluation/results/"),
+        default=Path("./data/evaluation/runs/"),
     )
     parser.add_argument(
         "--device",
