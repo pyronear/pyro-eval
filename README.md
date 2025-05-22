@@ -28,6 +28,28 @@ evaluation on:
 - __Evaluation Results__: By default, the results of the evaluation runs are
 stored under `./data/evaluation/`.
 
+Example of files under `./data/`:
+
+```bash
+$ tree -L 3
+.
+├── datasets
+│   ├── gitkeep
+│   └── wildfire_test
+│       ├── data.yaml
+│       ├── images
+│       ├── labels
+│       └── wildfire_test.csv
+├── evaluation
+│   ├── gitkeep
+│   └── runs
+│       └── run-20250522-1457-7552
+└── models
+    ├── artistic-alpaca_v1.1.0_fe129f2.onnx
+    ├── artistic-alpaca_v1.1.0_fe129f2.pt
+    └── gitkeep
+```
+
 ## Usage
 
 ### run_evaluation.py
