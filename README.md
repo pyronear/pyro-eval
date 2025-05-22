@@ -82,12 +82,13 @@ from the current date and a custom hash of the dataset.
 When instanciating from a local folder, the following rules must be follow to
 ensure a proper functioning of the class:
 
-- Root folder must contain one subfolder named `images` and one named `labels`
-- `images` folder must contain the images files, named with the following
-convention : `*_Y-m-dTH-M-S.jpg`, for example
-`seq_44_sdis-07_brison-200_2024-02-16T16-38-22.jpg``
-- `labels` folder must contain a label .txt file for each image with the
-coordinates of the groundtruth bounding box
+- The root folder must contain one subfolder named `images` and one named
+`labels`
+- The `images` folder must contain the images files, named with the following
+convention : `*_Y-m-dTH-M-S.jpg`, for example:
+`seq_44_sdis-07_brison-200_2024-02-16T16-38-22.jpg`
+- `labels` folder must contain a label `.txt` file in the YOLOv8 TXT format for
+each image with the coordinates of the groundtruth bounding box
 
 ```txt
 dataset
@@ -98,7 +99,7 @@ dataset
 ├── labels
 │   ├── image1.txt
 │   └── image2.txt
-│   └── image2.txt
+    └── image2.txt
 ```
 
 ```python
@@ -120,7 +121,7 @@ evaluation.save_metrics()
 
 The complete evaluation is composed of two part : `ModelEvaluator`, which
 provides metrics on the model performance alone, and `EngineEvaluator` which
-provides metrics on the whole detection pipeline in the PyroEngine. 
+provides metrics on the whole detection pipeline in the PyroEngine.
 
 The object can be instanciated with the following parameters as input:
 
@@ -128,20 +129,28 @@ The object can be instanciated with the following parameters as input:
 - `self.config` : config dictionary as described below
 - `self.run_id` : ID of the run, will be generated if not specified
 - `self.resume` : if True, we check for existing results in the result folder
-associated to this run_id 
+associated to this `run_id`
 
 `config` is a dictionnary that describes the run configuration, if not in the
 dictionnary, the parameters will take the default values shown below.
 
 ```json
 {
-    "nb_consecutive_frames" : 4,  # Number of consecutive frames taken into accoun in the Engine
-    "conf_thresh" : 0.15,         # Confidence threshold, below which detections are filtered out
-    "max_bbox_size" : 0.4,        # Bbox size above which detections are filtered out
-    "iou" : 0.1,                  # IoU threshold to compute matches between detected bboxes
-    "eval" : ["model", "engine"]  # Parts of the evaluation pipeline
+    "nb_consecutive_frames" : 4,
+    "conf_thresh" : 0.15,
+    "max_bbox_size" : 0.4,
+    "iou" : 0.1,
+    "eval" : ["model", "engine"]
 }
 ```
+
+With the following keys:
+
+- __nb_consecutive_frames__ (int): Number of consecutive frames taken into accoun in the Engine
+- __conf_thresh__ (float in [0.,1.]): Confidence threshold, below which detections are filtered out
+- __max_bbox_size__ (float in [0., 1.]): Bbox size above which detections are filtered out
+- __iou__ (float in [0., 1.]): IoU threshold to compute matches between detected bboxes
+- __eval__ (array of strs): Parts of the evaluation pipeline
 
 ### Launcher configuration
 
