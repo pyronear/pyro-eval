@@ -30,6 +30,7 @@ def build_dataframe(run_dirs, csv_path=None):
         model_metrics = data.get("model_metrics", {})
         seq_metrics = data.get("engine_metrics", {}).get("sequence_metrics", {})
         img_metrics = data.get("engine_metrics", {}).get("image_metrics", {})
+        dataset_info = data.get("dataset")
 
         rows.append(
             {
@@ -51,12 +52,15 @@ def build_dataframe(run_dirs, csv_path=None):
                 "seq_fp": seq_metrics.get("fp"),
                 "seq_tp": seq_metrics.get("tp"),
                 "seq_fn": seq_metrics.get("fn"),
+                "avg_detection_delay" : seq_metrics.get("avg_detection_delay"),
                 "img_precision": img_metrics.get("precision"),
                 "img_recall": img_metrics.get("recall"),
                 "img_f1": img_metrics.get("f1"),
                 "img_fp": img_metrics.get("fp"),
                 "img_tp": img_metrics.get("tp"),
                 "img_fn": img_metrics.get("fn"),
+                "dataset_hash" : dataset_info.get("hash"),
+                "dataset_ID" : dataset_info.get("ID"),
             }
         )
 
@@ -99,8 +103,14 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
     except Exception as e:
         logging.error(f"Unable to open Google sheet : {e}")
 
-    worksheet = spreadsheet.sheet1
     df[key_column] = df[key_column].astype(str)
+
+    config_cols = [
+        "run_id",
+        "model_path",
+        "dataset_ID",
+        "dataset_hash"
+    ]
 
     model_cols = [
         "run_id",

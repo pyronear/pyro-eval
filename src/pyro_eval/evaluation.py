@@ -98,7 +98,8 @@ class EvaluationPipeline:
             "ID": self.dataset.dataset_ID,
             "datapath": str(self.dataset.datapath),
             "Number of Images": len(self.dataset),
-            "NUmber of Sequences": len(self.dataset.sequences),
+            "Number of Sequences": len(self.dataset.sequences),
+            "hash" : self.dataset.hash,
         }
 
         self.metrics.update(
