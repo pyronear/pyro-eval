@@ -146,6 +146,7 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
 
     df_model = df[model_cols].copy()
     df_engine = df[engine_cols].copy()
+    df_config = df[config_cols].copy()
     logging.info("Updating google sheet")
 
     def update_worksheet(sheet_name, new_df, key_column="run_id"):
@@ -180,6 +181,7 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
         logging.info(f"{sheet_name} sheet updated")
         return (nb_updated, nb_added)
 
+    update_worksheet("Config", df_config)
     update_worksheet("Model", df_model)
     nb_updated, nb_added = update_worksheet("Engine", df_engine)
     logging.info(f"{nb_added} runs added.")
