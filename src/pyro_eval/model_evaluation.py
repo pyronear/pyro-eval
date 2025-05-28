@@ -1,12 +1,27 @@
+import json
+import logging
+import os
+from pathlib import Path
+from typing import List
+
+import numpy as np
+
 from .dataset import EvaluationDataset
+from .data_structures import CustomImage
 from .model import Model
-from .utils import compute_metrics, find_matches
+from .utils import compute_metrics, make_dict_json_compatible, find_matches
 
 
 class ModelEvaluator:
-    def __init__(self, dataset: EvaluationDataset, config={}, device=None):
+    def __init__(self,
+                 dataset: EvaluationDataset,
+                 config: dict = {},
+                 device: str = None,
+                 use_previous_predictions: bool = True):
+
         self.dataset = dataset
         self.config = config
+        self.use_previous_predictions = use_previous_predictions
         self.model_path = self.config.get("model_path", None)
         self.inference_params = self.config.get("inference_params", {})
         self.iou_threshold = self.config.get("iou", 0.1)
@@ -25,10 +40,64 @@ class ModelEvaluator:
             "fn": [],
         }
 
-    def run_predictions(self):
+        self.prediction_file = self.get_prediction_path()
+
+    def get_prediction_path(self):
+        abs_model_path = Path(self.model_path).resolve()
+        output_dir = Path("data/predictions")
+
+        # Try to take the relative path from the models folder, only work if the model path points to this folder
+        try:
+            relative = abs_model_path.relative_to(abs_model_path.parents[abs_model_path.parts.index("models")])
+        except ValueError:
+            # otherwise we use only the last subfolders
+            relative = Path(*abs_model_path.parts[-2:])
+
+        output_name = "_".join(relative.parts).replace(".pt", "") + ".json"
+
+        return output_dir / output_name
+
+    def run_predictions(self, image_list : List[CustomImage] = None):
+        """
+        Run predictions on a list of CustomImage objects
+        By default runs on all images in the dataset
+        Saves results in a json to avoid recomputation on different runs with the same model
+        """
         # Run pred for each CustomImage in the EvaluationDataset
-        for image in self.images:
+        image_list = image_list or self.images
+        predictions = {}
+        for image in image_list:
             image.prediction = self.model.inference(image)
+            predictions[image.name] = image.prediction
+
+        # Save predictions for later use
+        if not os.path.isfile(self.prediction_file):
+            with open(self.prediction_file, 'w') as fp:
+                json.dump(make_dict_json_compatible(predictions), fp)
+
+    def load_predictions(self):
+        """
+        Load prediction from a json file.
+        Predictions are saved in a json named following the model path.
+        """
+        if not os.path.isfile(self.prediction_file):
+            logging.error(f"Prediction file not found : {self.prediction_file}")
+            logging.info("Running predictions.")
+            self.run_predictions()
+        else:
+            # Load predictions from json file
+            with open(self.prediction_file, 'r') as fp:
+                predictions = json.load(fp)
+            missing_predictions = []
+            for image in self.images:
+                if image.name in predictions:
+                    image.prediction = np.array(predictions[image.name])
+                else:
+                    missing_predictions.append(image)
+
+            # Run predictions on images which are missing in the json file
+            if len(missing_predictions):
+                self.run_predictions(image_list=missing_predictions)
 
     def track_predictions(self, fp, tp, fn, image_path):
         """
@@ -47,7 +116,10 @@ class ModelEvaluator:
         """
         Compares predictions and labels to evaluate the model performance on the dataset
         """
-        self.run_predictions()
+        if self.use_previous_predictions:
+            self.load_predictions()
+        else:
+            self.run_predictions()
 
         nb_fp, nb_tp, nb_fn = 0, 0, 0
 

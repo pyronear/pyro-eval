@@ -74,6 +74,8 @@ def make_dict_json_compatible(data):
     elif np.issubdtype(type(data), np.integer):
         # Convert int64 in native int
         return int(data)
+    elif isinstance(data, np.ndarray):
+        return data.tolist()
     else:
         return data
 
