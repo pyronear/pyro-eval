@@ -36,7 +36,7 @@ class EvaluationPipeline:
         # Evaluate the model performance on single images
         self.model_evaluator = ModelEvaluator(
             dataset=dataset,
-            config=self.config,
+            config=self.config["model"],
             device=device,
             use_previous_predictions=use_previous_predictions
         )
@@ -44,7 +44,7 @@ class EvaluationPipeline:
         # Evaluate the engine performance on series of images
         self.engine_evaluator = EngineEvaluator(
             dataset=dataset,
-            config=self.config,
+            config=self.config["model"],
             run_id=self.run_id,
             resume=resume
         )
@@ -52,15 +52,26 @@ class EvaluationPipeline:
     def get_config(self, config):
         """
         Assign default parameters to config dict
-        Get the default parameters from an Engine instance
+        Get the default parameters from an Engine and Classifier instances
         """
         dummy_engine = Engine()
-        dummy_classifier = Classifier()
-        config.setdefault("nb_consecutive_frames", dummy_engine.nb_consecutive_frames)
-        config.setdefault("conf_thresh", dummy_engine.conf_thresh)
-        config.setdefault("max_bbox_size", dummy_classifier.max_bbox_size)
-        config.setdefault("iou", dummy_classifier.iou)
+        dummy_model = Classifier()
+
+        engine_config = config.get("engine", {})
+        engine_config.setdefault("model_path", config.get("model_path"))
+        engine_config.setdefault("nb_consecutive_frames", dummy_engine.nb_consecutive_frames)
+        engine_config.setdefault("conf_thresh", dummy_engine.conf_thresh)
+        engine_config.setdefault("max_bbox_size", dummy_model.max_bbox_size)
+
+        model_config = config.get("model", {})
+        model_config.setdefault("model_path", config.get("model_path"))
+        model_config.setdefault("iou", dummy_model.iou)
+        model_config.setdefault("conf", dummy_model.conf)
+        model_config.setdefault("imgsz", dummy_model.imgsz)
+
         config.setdefault("eval", ["model", "engine"])
+        config["engine"] = engine_config
+        config["model"] = engine_config
         return config
 
     def run(self):
