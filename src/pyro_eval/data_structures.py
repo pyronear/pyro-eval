@@ -16,7 +16,7 @@ class CustomImage:
     Dataclass for a custom image object that gathers data about each image : bytes, annotations, origin sequence
     """
 
-    image_path: str
+    path: str
     sequence_id: str
     timedelta: float
     boxes: List[str]
@@ -26,25 +26,25 @@ class CustomImage:
     prediction: Optional[str] = field(default=None)
 
     def __post_init__(self):
-        self.timestamp = parse_date_from_filepath(self.image_path)["date"]
+        self.timestamp = parse_date_from_filepath(self.path)["date"]
         self.hash = self.compute_hash()
         self.label: bool = len(self.boxes) > 0
-        self.name: str = os.path.basename(self.image_path)
+        self.name: str = os.path.basename(self.path)
 
     def load(self) -> PILImage.Image:
         """
         Load image only when needed
         """
         try:
-            image = PILImage.open(self.image_path)
+            image = PILImage.open(self.path)
         except:
             image = None
-            logging.error(f"Unable to load image : {self.image_path}")
+            logging.error(f"Unable to load image : {self.path}")
         return image
 
     def compute_hash(self):
         hash_md5 = hashlib.md5()
-        with open(self.image_path, "rb") as f:
+        with open(self.path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
@@ -66,7 +66,7 @@ class CustomImage:
             # Translate into xyxy coordinates and return
             return [xywh2xyxy(box) for box in boxes]
         except Exception as e:
-            logging.warning(f"Failed to parse boxes for image {self.image_path}: {e}")
+            logging.warning(f"Failed to parse boxes for image {self.path}: {e}")
             return []
 
 

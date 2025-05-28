@@ -146,7 +146,7 @@ class EvaluationDataset:
         for sequence_id, sequence_df in self.dataframe.groupby("sequence_id"):
             custom_images = [
                 CustomImage(
-                    image_path=row["image"],
+                    path=row["image"],
                     sequence_id=sequence_id,
                     timedelta=row["delta"],
                     boxes=row["boxes"],
@@ -227,7 +227,7 @@ class EvaluationDataset:
         for sequence in self.sequences:
             for image in sequence.images:
                 self.dataframe.loc[
-                    self.dataframe["image"] == image.image_path, "sequence_label"
+                    self.dataframe["image"] == image.path, "sequence_label"
                 ] = sequence.label
         return self.dataframe
 
@@ -269,7 +269,7 @@ class EvaluationDataset:
 
         # defaultdict(list) initialize the entry with {key : []} if key doesn't exist
         for img in self.get_all_images():
-            hash_to_paths[img.hash].append(img.image_path)
+            hash_to_paths[img.hash].append(img.path)
 
         # Check for hash that have several path corresponding
         self.duplicates = {

@@ -95,7 +95,7 @@ class EngineEvaluator:
             confidence = self.engine.predict(pil_image)
             sequence_results.loc[len(sequence_results)] = [
                 sequence.sequence_id,  # sequence_id
-                image.image_path,  # image
+                image.path,  # image
                 sequence.label,  # sequence_label
                 image.boxes,  # ground_truth_boxes
                 image.label,  # image_label

@@ -129,7 +129,7 @@ class ModelEvaluator:
             # Predictions
             pred_boxes = image.prediction
             fp, tp, fn = find_matches(gt_boxes, pred_boxes, self.iou_threshold)
-            self.track_predictions(fp, tp, fn, image.image_path)
+            self.track_predictions(fp, tp, fn, image.path)
 
             nb_fp += fp
             nb_tp += tp

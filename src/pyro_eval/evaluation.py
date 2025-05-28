@@ -4,6 +4,7 @@ import random
 from datetime import datetime
 from pathlib import Path
 
+from pandas import Timedelta
 from pyroengine.engine import Engine
 from pyroengine.vision import Classifier
 
@@ -115,6 +116,8 @@ class EvaluationPipeline:
                 return f"{value:.2f}"
             elif isinstance(value, int):
                 return f"{value}"
+            elif isinstance(value, Timedelta):
+                return str(value)
             else:
                 return "N/A"
 
@@ -170,7 +173,7 @@ class EvaluationPipeline:
                 f"       F1 Score:  {format_metric(engine_sequence_metrics.get('f1', 'N/A'))}"
             )
             logging.info(
-                f"       Averagde Detecion Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}"
+                f"       Average Detection Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}"
             )
 
     def generate_run_id(self):

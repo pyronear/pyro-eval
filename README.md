@@ -211,7 +211,7 @@ The file contains:
 ### CustomImage()
 
 `CustomImage`: object describing an image
-- `image.image_path`: file path
+- `image.path`: file path
 - `image.sequence_id`: name of the sequence the image belongs to
 - `image.timedelta`: time elapsed between the start of the sequence and this image
 - `image.boxes`: ground truth coordinates
