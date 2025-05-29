@@ -59,8 +59,10 @@ def build_dataframe(run_dirs, csv_path=None):
                 "img_fp": img_metrics.get("fp"),
                 "img_tp": img_metrics.get("tp"),
                 "img_fn": img_metrics.get("fn"),
-                "dataset_hash" : dataset_info.get("hash"),
-                "dataset_ID" : dataset_info.get("ID"),
+                "model_dataset_hash" : dataset_info.get("model", {}).get("hash"),
+                "model_dataset_ID" : dataset_info.get("model", {}).get("ID"),
+                "engine_dataset_hash" : dataset_info.get("engine", {}).get("hash"),
+                "engine_dataset_ID" : dataset_info.get("engine", {}).get("ID"),
             }
         )
 
@@ -108,8 +110,10 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
     config_cols = [
         "run_id",
         "model_path",
-        "dataset_ID",
-        "dataset_hash"
+        "model_dataset_ID",
+        "model_dataset_hash"
+        "engine_dataset_ID",
+        "engine_dataset_hash"
     ]
 
     model_cols = [
@@ -121,6 +125,7 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
         "model_fp",
         "model_tp",
         "model_fn",
+        "model_dataset_hash"
     ]
 
     engine_cols = [
@@ -142,6 +147,7 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
         "nb_consecutive_frames",
         "iou",
         "max_bbox_size",
+        "engine_dataset_hash"
     ]
 
     df_model = df[model_cols].copy()

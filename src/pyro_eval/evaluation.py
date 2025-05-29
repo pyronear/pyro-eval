@@ -3,6 +3,7 @@ import logging
 import random
 from datetime import datetime
 from pathlib import Path
+from typing import Dict
 
 from pandas import Timedelta
 from pyroengine.engine import Engine
@@ -21,7 +22,7 @@ logging.basicConfig(
 class EvaluationPipeline:
     def __init__(
         self,
-        dataset: EvaluationDataset,
+        dataset: Dict[str, EvaluationDataset],
         config: dict = {},
         run_id: str = "",
         resume: bool = False,
@@ -29,26 +30,29 @@ class EvaluationPipeline:
         use_previous_predictions: bool = True,
     ):
 
-        self.dataset = dataset
+        self.model_dataset = dataset.get("model")
+        self.engine_dataset = dataset.get("engine")
         self.config = self.get_config(config)
         self.run_id = run_id or self.generate_run_id()
         self.metrics = {}
 
         # Evaluate the model performance on single images
-        self.model_evaluator = ModelEvaluator(
-            dataset=dataset,
-            config=self.config["model"],
-            device=device,
-            use_previous_predictions=use_previous_predictions
-        )
+        if "model" in self.config["eval"]:
+            self.model_evaluator = ModelEvaluator(
+                dataset=self.model_dataset,
+                config=self.config["model"],
+                device=device,
+                use_previous_predictions=use_previous_predictions
+            )
 
         # Evaluate the engine performance on series of images
-        self.engine_evaluator = EngineEvaluator(
-            dataset=dataset,
-            config=self.config["model"],
-            run_id=self.run_id,
-            resume=resume
-        )
+        if "engine" in self.config["eval"]:
+            self.engine_evaluator = EngineEvaluator(
+                dataset=self.engine_dataset,
+                config=self.config["model"],
+                run_id=self.run_id,
+                resume=resume
+            )
 
     def get_config(self, config):
         """
@@ -95,11 +99,17 @@ class EvaluationPipeline:
         logging.info(f"Saving metrics in {filepath_result}")
 
         dataset_info = {
-            "ID": self.dataset.dataset_ID,
-            "datapath": str(self.dataset.datapath),
-            "Number of Images": len(self.dataset),
-            "Number of Sequences": len(self.dataset.sequences),
-            "hash" : self.dataset.hash,
+            subset : {
+                "ID": dataset.dataset_ID,
+                "datapath": str(dataset.datapath),
+                "Number of images": len(dataset),
+                "Number of sequences": len(dataset.sequences),
+                "hash" : dataset.hash,
+            }
+            for subset, dataset in zip(
+                ["model", "engine"],
+                [self.model_dataset, self.engine_dataset]
+                )
         }
 
         self.metrics.update(
