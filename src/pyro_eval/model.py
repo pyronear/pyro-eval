@@ -6,6 +6,7 @@ import onnxruntime
 import torch
 from huggingface_hub import HfApi, HfFolder, hf_hub_download
 from huggingface_hub.utils import HfHubHTTPError
+from pyroengine.vision import Classifier
 from ultralytics import YOLO
 
 from .data_structures import CustomImage
@@ -31,7 +32,7 @@ class Model:
         if os.path.isfile(self.model_path):
             # Local file, .onnx format
             if self.model_path.endswith(".onnx"):
-                self.load_onnx()
+                return self.load_onnx()
 
             # Local file, .pt format
             if self.model_path.endswith(".pt"):
@@ -44,7 +45,7 @@ class Model:
                 self.load_HF()
 
             # File doesn't not exist, but path is not a huggingface path
-            raise ValueError(f"Model file not found: {self.model_path}")
+            raise FileNotFoundError(f"Model file not found: {self.model_path}")
 
     def load_onnx(self):
         """
@@ -52,7 +53,9 @@ class Model:
         Format has to be tracked as model call differs from other formats
         """
         try:
-            session = onnxruntime.InferenceSession(self.model_path)
+            # This object is created to use the pre-processing and post-processing from the engine
+            # Parameters are set to remove any filter of the preds
+            model = Classifier(model_path=self.model_path, format="onnx", conf=0, max_bbox_size=1)
         except Exception as e:
             raise RuntimeError(
                 f"Failed to load the ONNX model from {self.model_path}: {str(e)}"
@@ -60,7 +63,7 @@ class Model:
 
         logging.info(f"ONNX model loaded successfully from {self.model_path}")
         self.format = "onnx"
-        return session
+        return model
 
     def load_HF(self):
         """
@@ -71,7 +74,7 @@ class Model:
         filename = f"{os.path.basename(repo_id)}.pt"
         if token is None:
             raise ValueError(
-                "Error : no Hugging Face found. Please authenticate with `huggingface-cli login`."
+                "Error : no Hugging Face token found. Please authenticate with `huggingface-cli login`."
             )
         try:
             hf_hub_download(repo_id=repo_id, filename=filename)
@@ -120,7 +123,7 @@ class Model:
 
         if self.format == "onnx":
             try:
-                prediction = self.model.run(["output0"], {"images": pil_image})[0][0]
+                prediction = self.onnx_classifier(pil_image)
                 # TODO : check format of prediction and reformat to xyxy if necessary
             except Exception as e:
                 logging.error(f"Onnx inference failed on {image.path} : {e}")
@@ -135,6 +138,7 @@ class Model:
                     device=self.device,
                 )[0]
 
+                # TODO : check whether xyxy should be used instead
                 prediction = results.boxes.xyxyn.cpu().numpy()
             except Exception as e:
                 logging.error(f"Inference failed on {image.path} : {e}")
