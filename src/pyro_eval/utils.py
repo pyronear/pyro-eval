@@ -1,8 +1,8 @@
 import os
+import random
 import re
 from datetime import datetime
 from pathlib import PosixPath
-
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas import Timedelta
@@ -249,3 +249,12 @@ def get_dict_types(d):
             return type(value)
 
     return {k: infer_type(v) for k, v in d.items()}
+
+
+def generate_run_id():
+    """
+    Generates a unique run_id to store results
+    """
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    rand_suffix = random.randint(1000, 9999)
+    return f"run-{timestamp}-{rand_suffix}"

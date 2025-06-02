@@ -13,15 +13,17 @@ from .utils import compute_metrics, make_dict_json_compatible, find_matches
 
 
 class ModelEvaluator:
-    def __init__(self,
-                 dataset: EvaluationDataset,
-                 config: dict = {},
-                 device: str = None,
-                 use_previous_predictions: bool = True):
+    def __init__(
+        self,
+        dataset: EvaluationDataset,
+        config: dict = {},
+        device: str = None,
+        use_existing_predictions: bool = True
+    ):
 
         self.dataset = dataset
         self.config = config
-        self.use_previous_predictions = use_previous_predictions
+        self.use_existing_predictions = use_existing_predictions
         self.model_path = self.config.get("model_path", None)
         self.inference_params = self.config.get("inference_params", {})
         self.iou_threshold = self.config.get("iou", 0.1)
@@ -81,7 +83,7 @@ class ModelEvaluator:
         Predictions are saved in a json named following the model path.
         """
         if not os.path.isfile(self.prediction_file):
-            logging.error(f"Prediction file not found : {self.prediction_file}")
+            logging.info(f"Prediction file not found : {self.prediction_file}")
             logging.info("Running predictions.")
             self.run_predictions()
         else:
@@ -116,7 +118,7 @@ class ModelEvaluator:
         """
         Compares predictions and labels to evaluate the model performance on the dataset
         """
-        if self.use_previous_predictions:
+        if self.use_existing_predictions:
             self.load_predictions()
         else:
             self.run_predictions()

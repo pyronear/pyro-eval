@@ -12,7 +12,7 @@ from pyroengine.vision import Classifier
 from .dataset import EvaluationDataset
 from .engine_evaluation import EngineEvaluator
 from .model_evaluation import ModelEvaluator
-from .utils import make_dict_json_compatible
+from .utils import make_dict_json_compatible, generate_run_id
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -27,13 +27,13 @@ class EvaluationPipeline:
         run_id: str = "",
         resume: bool = False,
         device: str | None = None,
-        use_previous_predictions: bool = True,
+        use_existing_predictions: bool = True,
     ):
 
         self.model_dataset = dataset.get("model")
         self.engine_dataset = dataset.get("engine")
         self.config = self.get_config(config)
-        self.run_id = run_id or self.generate_run_id()
+        self.run_id = run_id or generate_run_id()
         self.metrics = {}
 
         # Evaluate the model performance on single images
@@ -42,7 +42,7 @@ class EvaluationPipeline:
                 dataset=self.model_dataset,
                 config=self.config["model"],
                 device=device,
-                use_previous_predictions=use_previous_predictions
+                use_existing_predictions=use_existing_predictions
             )
 
         # Evaluate the engine performance on series of images
@@ -51,7 +51,8 @@ class EvaluationPipeline:
                 dataset=self.engine_dataset,
                 config=self.config["model"],
                 run_id=self.run_id,
-                resume=resume
+                resume=resume,
+                use_existing_predictions=use_existing_predictions
             )
 
     def get_config(self, config):
@@ -186,11 +187,3 @@ class EvaluationPipeline:
             logging.info(
                 f"       Average Detection Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}"
             )
-
-    def generate_run_id(self):
-        """
-        Generates a unique run_id to store results
-        """
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
-        rand_suffix = random.randint(1000, 9999)
-        return f"run-{timestamp}-{rand_suffix}"
