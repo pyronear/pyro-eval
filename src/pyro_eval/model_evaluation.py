@@ -128,8 +128,8 @@ class ModelEvaluator:
         for image in self.images:
             # Labels
             gt_boxes = image.boxes_xyxy
-            # Predictions
-            pred_boxes = image.prediction
+            # Predictions - last element of the array is the confidence
+            pred_boxes = np.array([pred[:-1] for pred in image.prediction])
             fp, tp, fn = find_matches(gt_boxes, pred_boxes, self.iou_threshold)
             self.track_predictions(fp, tp, fn, image.path)
 

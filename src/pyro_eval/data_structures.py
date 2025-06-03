@@ -23,7 +23,7 @@ class CustomImage:
 
     timestamp: str = field(init=False)
     hash: str = field(init=False)
-    prediction: Optional[str] = field(default=None)
+    prediction: Optional[str] = field(default=None) # Formatted as a 5-array of predictions [[boxes.xyxyn, conf]]
 
     def __post_init__(self):
         self.timestamp = parse_date_from_filepath(self.path)["date"]

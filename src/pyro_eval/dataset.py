@@ -112,7 +112,7 @@ class EvaluationDataset:
 
             return boxes
 
-        image_filepaths = list(Path(self.datapath / "images").glob("**/*.jpg"))
+        image_filepaths = list((Path(self.datapath) / "images").glob("**/*.jpg"))
         logging.info(f"Found {len(image_filepaths)} images in dataset")
         image_list = [image for image in sorted(image_filepaths) if is_image(image)]
         annotations = [load_annotation(image_path) for image_path in image_list]

@@ -55,7 +55,12 @@ class Model:
         try:
             # This object is created to use the pre-processing and post-processing from the engine
             # Parameters are set to remove any filter of the preds
-            model = Classifier(model_path=self.model_path, format="onnx", conf=0, max_bbox_size=1)
+            model = Classifier(
+                model_path=self.model_path,
+                format="onnx",
+                conf=self.inference_params["conf"],
+                max_bbox_size=1
+            )
         except Exception as e:
             raise RuntimeError(
                 f"Failed to load the ONNX model from {self.model_path}: {str(e)}"
@@ -123,11 +128,11 @@ class Model:
 
         if self.format == "onnx":
             try:
-                prediction = self.onnx_classifier(pil_image)
-                # TODO : check format of prediction and reformat to xyxy if necessary
+                # Returns an array of predicitions with boxes xyxyn and confidence
+                prediction = self.model(pil_image) # [[x1, y1, x2, y2, confidence]]
             except Exception as e:
                 logging.error(f"Onnx inference failed on {image.path} : {e}")
-                prediction = np.nan
+                prediction = []
         else:
             try:
                 results = self.model.predict(
@@ -137,11 +142,15 @@ class Model:
                     imgsz=self.inference_params["imgsz"],
                     device=self.device,
                 )[0]
+                # Format predictions to onnx format : [[boxes.xyxyn, conf]]
+                prediction = []
+                for box in results.boxes:
+                    xyxyn = box.xyxyn.cpu().numpy().flatten()  # [x1, y1, x2, y2]
+                    conf = box.conf.cpu().item()
+                    prediction.append([*xyxyn, conf])
 
-                # TODO : check whether xyxy should be used instead
-                prediction = results.boxes.xyxyn.cpu().numpy()
             except Exception as e:
                 logging.error(f"Inference failed on {image.path} : {e}")
-                prediction = np.nan
+                prediction = []
 
         return prediction
