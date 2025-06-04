@@ -2,7 +2,6 @@ import json
 import logging
 import os
 from collections import deque
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,6 +10,7 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_
 
 from .data_structures import Sequence
 from .dataset import EvaluationDataset
+from .path_manager import get_prediction_path
 from .utils import compute_metrics, export_model, generate_run_id, make_dict_json_compatible, timing
 
 logging.getLogger("pyroengine.engine").setLevel(logging.WARNING)
@@ -51,12 +51,11 @@ class EngineEvaluator:
         self.needs_deletion = False
         self.run_model_path = None
         self.engine = self.instanciate_engine()
-        self.prediction_file = self.get_prediction_path()
+        self.prediction_file = get_prediction_path(self.model_path)
         self.use_existing_predictions = use_existing_predictions
 
         # Retrieve images from the dataset
         self.images = self.dataset.get_all_images()
-
 
     def instanciate_engine(self):
         """
@@ -84,21 +83,6 @@ class EngineEvaluator:
 
         return engine
 
-    def get_prediction_path(self):
-        abs_model_path = Path(self.model_path).resolve()
-        output_dir = Path("data/predictions")
-
-        # Try to take the relative path from the models folder, only work if the model path points to this folder
-        try:
-            relative = abs_model_path.relative_to(abs_model_path.parents[abs_model_path.parts.index("models")])
-        except ValueError:
-            # otherwise we use only the last subfolders
-            relative = Path(*abs_model_path.parts[-2:])
-
-        output_name = "_".join(relative.parts).replace(".pt", "") + ".json"
-
-        return output_dir / output_name
-
     def load_predictions(self):
         """
         Load prediction from a json file.
@@ -107,7 +91,6 @@ class EngineEvaluator:
         if not os.path.isfile(self.prediction_file):
             logging.info(f"Prediction file not found : {self.prediction_file}")
             logging.info("Running predictions.")
-            self.predictions = {}
         else:
             # Load predictions from json file
             with open(self.prediction_file, 'r') as fp:
@@ -116,6 +99,23 @@ class EngineEvaluator:
             for image in self.images:
                 if image.name in predictions:
                     image.prediction = np.array(predictions[image.name])
+
+    def update_predictions(self, missing_predictions):
+        """
+        Computes missing predictions and saves them for later engine evaluation
+        """
+        new_predictions = {}
+        for image in missing_predictions:
+            image.prediction = self.model.inference(image)
+            new_predictions[image.name] = image.prediction
+
+        with open(self.prediction_file, 'w') as fp:
+            all_predictions = json.load(fp)
+        
+        all_predictions.update(new_predictions)
+        # Save predictions for later use
+        with open(self.prediction_file, 'w') as fp:
+            json.dump(make_dict_json_compatible(all_predictions), fp)
 
     def run_engine_sequence(self, sequence: Sequence):
         """
@@ -133,9 +133,9 @@ class EngineEvaluator:
             # Run prediction on a single image
 
             if self.use_existing_predictions:
-                if image.name in self.predictions:
-                    # Use the prediction previously computed stored in a json file
-                    confidence = self.engine.predict(frame=None, fake_pred=image.prediction)
+                if image.prediction is not None:
+                    # Use the previously computed prediction stored in the prediciton json file
+                    confidence = self.engine.predict(frame=None, fake_pred=image.prediction[:4])
                 else:
                     missing_predictions.append(image)
                     confidence = self.engine.predict(pil_image)
@@ -154,6 +154,7 @@ class EngineEvaluator:
                 image.timedelta,  # timedelta
             ]
 
+        self.update_predictions(missing_predictions=missing_predictions)
         # Clear states to reset the engine for the next sequence
         self.engine._states = {
             "-1": {
