@@ -11,7 +11,7 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_
 
 from .data_structures import Sequence
 from .dataset import EvaluationDataset
-from .utils import compute_metrics, export_model, generate_run_id, make_dict_json_compatible
+from .utils import compute_metrics, export_model, generate_run_id, make_dict_json_compatible, timing
 
 logging.getLogger("pyroengine.engine").setLevel(logging.WARNING)
 
@@ -127,14 +127,18 @@ class EngineEvaluator:
         # TODO : better handle default values
 
         sequence_results = pd.DataFrame(columns=self.results_data)
-
+        missing_predictions = []
         for image in sequence.images:
             pil_image = image.load()
             # Run prediction on a single image
 
-            if self.use_existing_predictions and image.name in self.predictions:
-                # Use the prediction previously computed stored in a json file
-                confidence = self.engine.predict(pil_image, fake_preds=image.prediction)
+            if self.use_existing_predictions:
+                if image.name in self.predictions:
+                    # Use the prediction previously computed stored in a json file
+                    confidence = self.engine.predict(frame=None, fake_pred=image.prediction)
+                else:
+                    missing_predictions.append(image)
+                    confidence = self.engine.predict(pil_image)
             else:
                 # Run the prediction from the Engine
                 confidence = self.engine.predict(pil_image)
@@ -153,8 +157,10 @@ class EngineEvaluator:
         # Clear states to reset the engine for the next sequence
         self.engine._states = {
             "-1": {
-                "last_predictions": deque([], self.config["nb_consecutive_frames"]),
+                "last_predictions": deque(maxlen=self.config["nb_consecutive_frames"]),
                 "ongoing": False,
+                "last_image_sent": None,
+                "last_bbox_mask_fetch": None,
             },
         }
         return sequence_results
@@ -330,6 +336,7 @@ class EngineEvaluator:
             "predictions": predictions,
         }
 
+    @timing("Engine evaluation")
     def evaluate(self):
         # Run Engine predictions on each sequence of the dataset
         self.run_engine_dataset()

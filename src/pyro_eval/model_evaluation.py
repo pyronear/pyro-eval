@@ -9,7 +9,7 @@ import numpy as np
 from .dataset import EvaluationDataset
 from .data_structures import CustomImage
 from .model import Model
-from .utils import compute_metrics, make_dict_json_compatible, find_matches
+from .utils import compute_metrics, find_matches, make_dict_json_compatible, timing
 
 
 class ModelEvaluator:
@@ -114,6 +114,7 @@ class ModelEvaluator:
         else:
             self.predictions["tn"].append(image_path)
 
+    @timing("Model evaluation")
     def evaluate(self):
         """
         Compares predictions and labels to evaluate the model performance on the dataset
