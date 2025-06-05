@@ -1,3 +1,4 @@
+import inspect
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
@@ -278,3 +279,16 @@ def timing(name: str):
             return result
         return wrapper
     return decorator
+
+
+def get_class_default_params(class_name):
+    """
+    Returns the default values of a class init parameters
+    """
+    signature = inspect.signature(class_name.__init__)
+
+    return {
+        name: param.default
+        for name, param in signature.parameters.items()
+        if param.default is not inspect.Parameter.empty and name != 'self'
+    }

@@ -1,8 +1,7 @@
 import json
 import logging
 import os
-from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 
@@ -23,14 +22,13 @@ class ModelEvaluator:
     ):
 
         self.dataset = dataset
-        self.config = config
+        self.config = config["model"]
         self.use_existing_predictions = use_existing_predictions
         self.model_path = self.config.get("model_path", None)
-        self.inference_params = self.config.get("inference_params", {})
         self.iou_threshold = self.config.get("iou", 0.1)
 
         # Load model
-        self.model = Model(self.model_path, self.inference_params, device)
+        self.model = Model(self.model_path, self.config, device)
 
         # Retrieve images from the dataset
         self.images = self.dataset.get_all_images()
@@ -58,33 +56,45 @@ class ModelEvaluator:
             image.prediction = self.model.inference(image)
             predictions[image.name] = image.prediction
 
-        # Save predictions for later use
-        with open(self.prediction_file, 'w') as fp:
-            json.dump(make_dict_json_compatible(predictions), fp)
+        return predictions
 
-    def load_predictions(self):
+    def update_predictions(self):
         """
-        Load prediction from a json file.
+        Load prediction from a json file and update with missing ones
         Predictions are saved in a json named following the model path.
         """
         if not os.path.isfile(self.prediction_file):
             logging.info(f"Prediction file not found : {self.prediction_file}")
             logging.info("Running predictions.")
-            self.run_predictions()
+            predictions = self.run_predictions()
         else:
             # Load predictions from json file
-            with open(self.prediction_file, 'r') as fp:
-                predictions = json.load(fp)
+            try:
+                with open(self.prediction_file, 'r') as fp:
+                    existing_predictions = json.load(fp)
+            except:
+                existing_predictions = {}
+                logging.error(f"Could not load existing predictions from {self.prediction_file}")
+
             missing_predictions = []
             for image in self.images:
-                if image.name in predictions:
-                    image.prediction = np.array(predictions[image.name])
+                if image.name in existing_predictions:
+                    image.prediction = np.array(existing_predictions[image.name])
                 else:
                     missing_predictions.append(image)
 
             # Run predictions on images which are missing in the json file
             if len(missing_predictions):
-                self.run_predictions(image_list=missing_predictions)
+                new_predictions  = self.run_predictions(image_list=missing_predictions)
+
+        existing_predictions.update(new_predictions)
+
+        self.save_predictions(existing_predictions)
+
+    def save_predictions(self, predictions: Dict):
+        # Save predictions for later use
+        with open(self.prediction_file, 'w') as fp:
+            json.dump(make_dict_json_compatible(predictions), fp)
 
     def track_predictions(self, fp, tp, fn, image_path):
         """
@@ -105,9 +115,10 @@ class ModelEvaluator:
         Compares predictions and labels to evaluate the model performance on the dataset
         """
         if self.use_existing_predictions:
-            self.load_predictions()
+            self.update_predictions()
         else:
-            self.run_predictions()
+            predictions = self.run_predictions()
+            self.save_predictions(predictions)
 
         nb_fp, nb_tp, nb_fn = 0, 0, 0
 

@@ -10,6 +10,7 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_
 
 from .data_structures import Sequence
 from .dataset import EvaluationDataset
+from .model import Model
 from .path_manager import get_prediction_path
 from .utils import compute_metrics, export_model, generate_run_id, make_dict_json_compatible, timing
 
@@ -26,11 +27,13 @@ class EngineEvaluator:
         save: bool = False,
         run_id: str = None,
         resume: bool = True,
+        device: str = None,
         use_existing_predictions: bool = True
     ):
 
         self.dataset = dataset
-        self.config = config
+        self.config = config["engine"]
+        self.model_config = config["model"]
         self.save = (
             save  # If save is True we regularly dump results and the config used
         )
@@ -52,6 +55,7 @@ class EngineEvaluator:
         self.run_model_path = None
         self.engine = self.instanciate_engine()
         self.prediction_file = get_prediction_path(self.model_path)
+        self.device = device
         self.use_existing_predictions = use_existing_predictions
 
         # Retrieve images from the dataset
@@ -104,18 +108,34 @@ class EngineEvaluator:
         """
         Computes missing predictions and saves them for later engine evaluation
         """
+        logging.info(f"Recomputing and saving {len(missing_predictions)} missing predictions.")
         new_predictions = {}
+
+        # Instantiate model with model_config parameters
+        model = Model(
+            model_path=self.model_path,
+            inference_params=self.model_config,
+            device=self.device
+        )
+
         for image in missing_predictions:
-            image.prediction = self.model.inference(image)
+            image.prediction = model.inference(image)
             new_predictions[image.name] = image.prediction
 
-        with open(self.prediction_file, 'w') as fp:
-            all_predictions = json.load(fp)
-        
-        all_predictions.update(new_predictions)
+        # Load existing predicitons
+        try:
+            with open(self.prediction_file, 'w') as fp:
+                existing_predictions = json.load(fp)
+        except:
+            existing_predictions = {}
+            logging.error(f"Could not load existing predictions from {self.prediction_file}")
+
+        # Add new predictions to existing ones
+        existing_predictions.update(new_predictions)
+
         # Save predictions for later use
         with open(self.prediction_file, 'w') as fp:
-            json.dump(make_dict_json_compatible(all_predictions), fp)
+            json.dump(make_dict_json_compatible(existing_predictions), fp)
 
     def run_engine_sequence(self, sequence: Sequence):
         """

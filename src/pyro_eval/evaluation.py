@@ -11,7 +11,7 @@ from pyroengine.vision import Classifier
 from .dataset import EvaluationDataset
 from .engine_evaluation import EngineEvaluator
 from .model_evaluation import ModelEvaluator
-from .utils import make_dict_json_compatible, generate_run_id
+from .utils import make_dict_json_compatible, generate_run_id, get_class_default_params
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -39,7 +39,7 @@ class EvaluationPipeline:
         if "model" in self.config["eval"]:
             self.model_evaluator = ModelEvaluator(
                 dataset=self.model_dataset,
-                config=self.config["model"],
+                config=self.config,
                 device=device,
                 use_existing_predictions=use_existing_predictions
             )
@@ -48,9 +48,10 @@ class EvaluationPipeline:
         if "engine" in self.config["eval"]:
             self.engine_evaluator = EngineEvaluator(
                 dataset=self.engine_dataset,
-                config=self.config["model"],
+                config=self.config,
                 run_id=self.run_id,
                 resume=resume,
+                device=device,
                 use_existing_predictions=use_existing_predictions
             )
 
@@ -60,17 +61,8 @@ class EvaluationPipeline:
         Get the default parameters from an Engine and Classifier instances
         """
 
-        def get_default_values(class_name):
-            signature = inspect.signature(class_name.__init__)
-
-            return {
-                name: param.default
-                for name, param in signature.parameters.items()
-                if param.default is not inspect.Parameter.empty and name != 'self'
-            }
-
-        engine_default_values = get_default_values(Engine)
-        model_default_values = get_default_values(Classifier)
+        engine_default_values = get_class_default_params(Engine)
+        model_default_values = get_class_default_params(Classifier)
 
         engine_config = config.get("engine", {})
         engine_config.setdefault("model_path", config.get("model_path"))
