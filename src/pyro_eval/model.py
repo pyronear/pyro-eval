@@ -1,8 +1,8 @@
+import hashlib
 import logging
 import os
+from typing import Dict
 
-import numpy as np
-import onnxruntime
 import torch
 from huggingface_hub import HfApi, HfFolder, hf_hub_download
 from huggingface_hub.utils import HfHubHTTPError
@@ -13,14 +13,20 @@ from .data_structures import CustomImage
 
 
 class Model:
-    def __init__(self, model_path, inference_params, device=None):
-        self.model_path = model_path
+    def __init__(
+            self,
+            model_path: str,
+            inference_params : Dict,
+            device: str = None,
+        ):
 
+        self.model_path = model_path
         self.model = self.load_model()
         self.device = self.get_device(device)
         self.model.to(self.device)
         self.format = None
         self.inference_params = self.set_inference_params(inference_params)
+        self.hash = self.model_hash()
 
     def load_model(self):
         if not self.model_path:
@@ -114,6 +120,7 @@ class Model:
             return torch.device("cpu")
 
     def set_inference_params(self, inference_params):
+        # TODO : use Classifier default params as in evaluation
         return {
             "conf": inference_params.get("conf", 0.05),
             "iou": inference_params.get("iou", 0),
@@ -154,3 +161,23 @@ class Model:
                 prediction = []
 
         return prediction
+
+    def model_hash(self) -> str:
+        """
+        Compute a SHA256 hash of a model file
+        """
+        hasher = hashlib.sha256()
+        with open(self.model_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hasher.update(chunk)
+        model_hash = hasher.hexdigest()
+
+        # Save the hash to a file next to the model
+        hash_file_path = self.model_path + ".sha256"
+        try:
+            with open(hash_file_path, 'w') as f:
+                f.write(model_hash)
+        except Exception as e:
+            logging.warning(f"Could not write hash file to {hash_file_path}: {e}")
+
+        return model_hash

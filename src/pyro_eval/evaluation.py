@@ -44,8 +44,8 @@ class EvaluationPipeline:
 
         # Object used to store and manage predictions (load, update, save)
         self.prediction_manager = PredictionManager(
-            model=self.model_path,
-            prediction_file=get_prediction_path(),
+            model=self.model,
+            prediction_file=get_prediction_path(self.model.hash),
             use_existing_predictions=use_existing_predictions
         )
 
@@ -95,7 +95,7 @@ class EvaluationPipeline:
 
         config.setdefault("eval", ["model", "engine"])
         config["engine"] = engine_config
-        config["model"] = engine_config
+        config["model"] = model_config
 
         return config
 

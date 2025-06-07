@@ -1,11 +1,5 @@
 from pathlib import Path
 
-def get_prediction_path(model_path):
-    abs_model_path = Path(model_path).resolve()
+def get_prediction_path(model_hash):
     output_dir = Path("data/predictions")
-
-    relative = Path(*abs_model_path.parts[-4:])
-
-    output_name = "_".join(relative.parts).replace(".pt", "") + ".json"
-
-    return output_dir / output_name
+    return output_dir / f"{model_hash}.json"
