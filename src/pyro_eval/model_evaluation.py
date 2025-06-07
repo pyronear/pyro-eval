@@ -1,14 +1,9 @@
-import json
-import logging
-import os
-from typing import List, Dict
-
 import numpy as np
 
 from .dataset import EvaluationDataset
-from .data_structures import CustomImage
 from .model import Model
 from .path_manager import get_prediction_path
+from .prediction_manager import PredictionManager
 from .utils import compute_metrics, find_matches, make_dict_json_compatible, timing
 
 
@@ -16,19 +11,16 @@ class ModelEvaluator:
     def __init__(
         self,
         dataset: EvaluationDataset,
+        model: Model,
+        prediction_manager: PredictionManager,
         config: dict = {},
-        device: str = None,
-        use_existing_predictions: bool = True
     ):
 
         self.dataset = dataset
+        self.model = model
+        self.prediction_manager = prediction_manager
         self.config = config["model"]
-        self.use_existing_predictions = use_existing_predictions
-        self.model_path = self.config.get("model_path", None)
-        self.iou_threshold = self.config.get("iou", 0.1)
-
-        # Load model
-        self.model = Model(self.model_path, self.config, device)
+        self.iou_threshold = self.config["iou"]
 
         # Retrieve images from the dataset
         self.images = self.dataset.get_all_images()
@@ -41,62 +33,9 @@ class ModelEvaluator:
             "fn": [],
         }
 
-        self.prediction_file = get_prediction_path(self.model_path)
+        self.prediction_file = get_prediction_path(self.config["model_path"])
 
-    def run_predictions(self, image_list : List[CustomImage] = None):
-        """
-        Run predictions on a list of CustomImage objects
-        By default runs on all images in the dataset
-        Saves results in a json to avoid recomputation on different runs with the same model
-        """
-        # Run pred for each CustomImage in the EvaluationDataset
-        image_list = image_list or self.images
-        predictions = {}
-        for image in image_list:
-            image.prediction = self.model.inference(image)
-            predictions[image.name] = image.prediction
-
-        return predictions
-
-    def update_predictions(self):
-        """
-        Load prediction from a json file and update with missing ones
-        Predictions are saved in a json named following the model path.
-        """
-        if not os.path.isfile(self.prediction_file):
-            logging.info(f"Prediction file not found : {self.prediction_file}")
-            logging.info("Running predictions.")
-            predictions = self.run_predictions()
-        else:
-            # Load predictions from json file
-            try:
-                with open(self.prediction_file, 'r') as fp:
-                    existing_predictions = json.load(fp)
-            except:
-                existing_predictions = {}
-                logging.error(f"Could not load existing predictions from {self.prediction_file}")
-
-            missing_predictions = []
-            for image in self.images:
-                if image.name in existing_predictions:
-                    image.prediction = np.array(existing_predictions[image.name])
-                else:
-                    missing_predictions.append(image)
-
-            # Run predictions on images which are missing in the json file
-            if len(missing_predictions):
-                new_predictions  = self.run_predictions(image_list=missing_predictions)
-
-        existing_predictions.update(new_predictions)
-
-        self.save_predictions(existing_predictions)
-
-    def save_predictions(self, predictions: Dict):
-        # Save predictions for later use
-        with open(self.prediction_file, 'w') as fp:
-            json.dump(make_dict_json_compatible(predictions), fp)
-
-    def track_predictions(self, fp, tp, fn, image_path):
+    def track_predictions(self, image_path, fp, tp, fn):
         """
         Track and stroe predictions for each image
         """
@@ -114,11 +53,7 @@ class ModelEvaluator:
         """
         Compares predictions and labels to evaluate the model performance on the dataset
         """
-        if self.use_existing_predictions:
-            self.update_predictions()
-        else:
-            predictions = self.run_predictions()
-            self.save_predictions(predictions)
+        self.prediction_manager.predict(self.images)
 
         nb_fp, nb_tp, nb_fn = 0, 0, 0
 
@@ -128,7 +63,7 @@ class ModelEvaluator:
             # Predictions - last element of the array is the confidence
             pred_boxes = np.array([pred[:-1] for pred in image.prediction])
             fp, tp, fn = find_matches(gt_boxes, pred_boxes, self.iou_threshold)
-            self.track_predictions(fp, tp, fn, image.path)
+            self.track_predictions(image.path, fp, tp, fn)
 
             nb_fp += fp
             nb_tp += tp

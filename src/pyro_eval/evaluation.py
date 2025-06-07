@@ -10,7 +10,10 @@ from pyroengine.vision import Classifier
 
 from .dataset import EvaluationDataset
 from .engine_evaluation import EngineEvaluator
+from .model import Model
 from .model_evaluation import ModelEvaluator
+from .path_manager import get_prediction_path
+from .prediction_manager import PredictionManager
 from .utils import make_dict_json_compatible, generate_run_id, get_class_default_params
 
 logging.basicConfig(
@@ -32,27 +35,39 @@ class EvaluationPipeline:
         self.model_dataset = dataset.get("model")
         self.engine_dataset = dataset.get("engine")
         self.config = self.get_config(config)
+        self.model_path = self.config["model_path"]
         self.run_id = run_id or generate_run_id()
         self.metrics = {}
+
+        # Load model
+        self.model = Model(self.model_path, self.config, device)
+
+        # Object used to store and manage predictions (load, update, save)
+        self.prediction_manager = PredictionManager(
+            model=self.model_path,
+            prediction_file=get_prediction_path(),
+            use_existing_predictions=use_existing_predictions
+        )
 
         # Evaluate the model performance on single images
         if "model" in self.config["eval"]:
             self.model_evaluator = ModelEvaluator(
                 dataset=self.model_dataset,
+                model=self.model,
+                prediction_manager=self.prediction_manager,
                 config=self.config,
-                device=device,
-                use_existing_predictions=use_existing_predictions
             )
 
         # Evaluate the engine performance on series of images
         if "engine" in self.config["eval"]:
             self.engine_evaluator = EngineEvaluator(
                 dataset=self.engine_dataset,
+                model=self.model,
+                prediction_manager=self.prediction_manager,
                 config=self.config,
                 run_id=self.run_id,
                 resume=resume,
                 device=device,
-                use_existing_predictions=use_existing_predictions
             )
 
     def get_config(self, config):
@@ -60,6 +75,8 @@ class EvaluationPipeline:
         Assign default parameters to config dict
         Get the default parameters from an Engine and Classifier instances
         """
+        if "model_path" not in config:
+            raise ValueError("A model_path must be provided in the evaluation config.")
 
         engine_default_values = get_class_default_params(Engine)
         model_default_values = get_class_default_params(Classifier)
