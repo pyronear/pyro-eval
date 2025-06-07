@@ -36,7 +36,7 @@ def parse_date_from_filepath(filepath):
     match = re.search(pattern, filename.lower())
 
     if not match:
-        pattern = r"_(\d{4})-(\d{2})-(\d{2})t(\d{2})-(\d{2})-(\d{2})\.(jpg|png)$"
+        pattern = r"(\d{4})-(\d{2})-(\d{2})t(\d{2})-(\d{2})-(\d{2})\.(jpg|png)$"
         match = re.search(pattern, filename.lower())
 
     if match:
