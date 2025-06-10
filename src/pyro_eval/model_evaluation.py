@@ -35,7 +35,13 @@ class ModelEvaluator:
 
         self.prediction_file = get_prediction_path(self.config["model_path"])
 
-    def track_predictions(self, image_path, fp, tp, fn):
+    def track_predictions(
+            self,
+            image_path: str,
+            fp: int,
+            tp: int,
+            fn: int
+        ) -> None:
         """
         Track and stroe predictions for each image
         """
@@ -62,12 +68,12 @@ class ModelEvaluator:
             gt_boxes = image.boxes_xyxy
             # Predictions - last element of the array is the confidence
             pred_boxes = np.array([pred[:-1] for pred in image.prediction])
-            fp, tp, fn = find_matches(gt_boxes, pred_boxes, self.iou_threshold)
-            self.track_predictions(image.path, fp, tp, fn)
+            img_fp, img_tp, img_fn = find_matches(gt_boxes, pred_boxes, self.iou_threshold)
+            self.track_predictions(image.path, img_fp, img_tp, img_fn)
 
-            nb_fp += fp
-            nb_tp += tp
-            nb_fn += fn
+            nb_fp += img_fp
+            nb_tp += img_tp
+            nb_fn += img_fn
         metrics = compute_metrics(
             false_positives=nb_fp, true_positives=nb_tp, false_negatives=nb_fn
         )
@@ -79,5 +85,6 @@ class ModelEvaluator:
             "fp": int(nb_fp),
             "tp": int(nb_tp),
             "fn": int(nb_fn),
+            "tn": len(self.predictions["tn"]),
             "predictions": self.predictions,
         }

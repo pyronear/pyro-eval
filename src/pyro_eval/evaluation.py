@@ -131,6 +131,7 @@ class EvaluationPipeline:
                 )
         }
 
+        self.config["model"]["hash"] = self.model.hash
         self.metrics.update(
             {"config": self.config, "run_id": self.run_id, "dataset": dataset_info}
         )
