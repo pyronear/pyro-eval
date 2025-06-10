@@ -60,6 +60,7 @@ class ModelEvaluator:
         Compares predictions and labels to evaluate the model performance on the dataset
         """
         self.prediction_manager.predict(self.images)
+        self.prediction_manager.save_predictions()
 
         nb_fp, nb_tp, nb_fn = 0, 0, 0
 

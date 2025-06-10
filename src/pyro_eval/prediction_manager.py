@@ -31,7 +31,6 @@ class PredictionManager:
             for image_name, prediction in data.items():
                 loaded_predictions[image_name] = np.array(prediction)
 
-            self.predictions.update(loaded_predictions)
             return loaded_predictions
 
         except Exception as e:
@@ -40,10 +39,12 @@ class PredictionManager:
 
     def save_predictions(self):
         # Load existing predictions to make sure we save everything
-        self.load_predictions()
+        loaded_predictions = self.load_predictions()
+        new_predictions = self.predictions.copy()
+        new_predictions.update(loaded_predictions)
         try:
             with open(self.prediction_file, "w") as f:
-                json.dump(make_dict_json_compatible(self.predictions), f)
+                json.dump(make_dict_json_compatible(new_predictions), f)
         except:
             logging.error(f"Unable to save predictions in {self.prediction_file}")
 
@@ -58,7 +59,3 @@ class PredictionManager:
             if image.name not in self.predictions:
                 image.prediction = self.model.inference(image)
                 self.predictions[image.name] = image.prediction
-
-        # Update predictions stored in a json with the new ones
-        self.save_predictions()
-        

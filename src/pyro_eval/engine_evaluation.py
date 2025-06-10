@@ -11,6 +11,7 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_
 from .data_structures import Sequence
 from .dataset import EvaluationDataset
 from .model import Model
+from .path_manager import get_prediction_csv
 from .prediction_manager import PredictionManager
 from .utils import compute_metrics, export_model, generate_run_id, make_dict_json_compatible, timing
 
@@ -28,7 +29,6 @@ class EngineEvaluator:
         config: dict = {},
         save: bool = False,
         run_id: str = None,
-        resume: bool = True,
         device: str = None,
     ):
 
@@ -38,7 +38,6 @@ class EngineEvaluator:
         self.config = config["engine"]
         self.save = save  # If save is True we regularly dump results and the config used
         self.run_id = run_id if run_id else generate_run_id()
-        self.resume = resume  # If True, we look for partial results in results/<run_id>
         self.results_data = [
             "sequence_id",
             "image",
@@ -49,7 +48,6 @@ class EngineEvaluator:
             "confidence",
             "timedelta",
         ]
-        self.predictions_csv = ""
         self.model_path = self.config.get("model_path", None)
         self.needs_deletion = False
         self.run_model_path = None
@@ -156,38 +154,16 @@ class EngineEvaluator:
         Function that processes predictions through the Engine on sequences of images
         """
 
-        if self.save:
-            # Csv file where detailed predictions are dumped
-            self.result_dir = os.path.join(
-                os.path.dirname(__file__), "data/results/engine", self.run_id
-            )
-            os.makedirs(self.result_dir, exist_ok=True)
-            self.predictions_csv = os.path.join(self.result_dir, "results.csv")
-
-        # Previous predictions are loaded if they exist and if resume is set to True
-        # FIXME : this doesn't work predictions are re-run every time
-        if os.path.isfile(self.predictions_csv) and self.resume:
-            logging.info(f"Loading previous predictions in {self.predictions_csv}")
-            self.predictions_df = pd.read_csv(self.predictions_csv)
-        else:
-            self.predictions_df = pd.DataFrame(columns=self.results_data)
+        self.predictions_df = pd.DataFrame(columns=self.results_data)
 
         try:
             for sequence in self.dataset:
-                if self.resume and sequence.sequence_id in set(
-                    self.predictions_df["sequence_id"].to_list()
-                ):
-                    logging.info(
-                        f"Results of {sequence} found in predictions csv, sequence skipped."
-                    )
-                    continue
                 sequence_results = self.run_engine_sequence(sequence)
 
                 # Add sequence results to result dataframe
                 self.predictions_df = pd.concat([self.predictions_df, sequence_results])
-                # Checkpoint to save predictions every 50 images
-                if self.save and len(self.predictions_df) % 50 == 0:
-                    self.predictions_df.to_csv(self.predictions_csv, index=False)
+                # Checkpoint to save predictions regularly
+                self.prediction_manager.save_predictions()
 
         finally:
             if self.needs_deletion:
@@ -198,9 +174,13 @@ class EngineEvaluator:
                         f"Temporary model file could not be removed : {self.run_model_path}"
                     )
 
+        # Final saving of the predictions
+        self.prediction_manager.save_predictions()
+
         if self.save:
-            logging.info(f"Saving predictions in {self.predictions_csv}")
-            self.predictions_df.to_csv(self.predictions_csv, index=False)
+            pred_csv = get_prediction_csv(self.run_id)
+            logging.info(f"Saving predictions in {pred_csv}")
+            self.predictions_df.to_csv(pred_csv, index=False)
 
     def compute_image_level_metrics(self):
         """
