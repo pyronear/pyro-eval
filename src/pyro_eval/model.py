@@ -10,7 +10,7 @@ from pyroengine.vision import Classifier
 from ultralytics import YOLO
 
 from .data_structures import CustomImage
-
+from .utils import get_class_default_params
 
 class Model:
     def __init__(
@@ -120,12 +120,14 @@ class Model:
             return torch.device("cpu")
 
     def set_inference_params(self, inference_params):
-        # TODO : use Classifier default params as in evaluation
-        return {
-            "conf": inference_params.get("conf", 0.05),
-            "iou": inference_params.get("iou", 0),
-            "imgsz": inference_params.get("imgsz", 1024),
-        }
+        """
+        Retrieve Classifier default parameters
+        """
+        default_params = get_class_default_params(Classifier)
+        inference_params.setdefault("conf", default_params["conf"])
+        inference_params.setdefault("iou", default_params["iou"])
+        inference_params.setdefault("imgsz", default_params["imgsz"])
+        return inference_params
 
     def inference(self, image: CustomImage):
         """
