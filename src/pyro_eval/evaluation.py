@@ -26,7 +26,6 @@ class EvaluationPipeline:
         dataset: Dict[str, EvaluationDataset],
         config: dict = {},
         run_id: str = "",
-        resume: bool = False,
         device: str | None = None,
         use_existing_predictions: bool = True,
     ):
@@ -65,7 +64,6 @@ class EvaluationPipeline:
                 prediction_manager=self.prediction_manager,
                 config=self.config,
                 run_id=self.run_id,
-                resume=resume,
                 device=device,
             )
 

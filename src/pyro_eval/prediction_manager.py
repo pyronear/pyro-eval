@@ -28,6 +28,7 @@ class PredictionManager:
         try:
             with open(self.prediction_file, "r") as f:
                 data = json.load(f)
+
             for image_name, prediction in data.items():
                 loaded_predictions[image_name] = np.array(prediction)
 
@@ -59,3 +60,5 @@ class PredictionManager:
             if image.name not in self.predictions:
                 image.prediction = self.model.inference(image)
                 self.predictions[image.name] = image.prediction
+            else:
+                image.prediction = self.predictions[image.name]
