@@ -109,20 +109,19 @@ class EngineEvaluator:
         """
 
         # Initialize a new Engine for each sequence
-        # TODO : better handle default values
 
         sequence_results = pd.DataFrame(columns=self.results_data)
-        missing_predictions = []
 
         for image in sequence.images:
             # Run prediction on a single image
             if image.prediction is not None:
                 # Use the previously computed prediction stored in the prediciton json file
-                confidence = self.engine.predict(frame=None, fake_pred=np.array(image.prediction[:4]))
+                confidence = self.engine.predict(frame=None, fake_pred=np.array(image.prediction))
             else:
                 pil_image = image.load()
-                missing_predictions.append(image)
                 confidence = self.engine.predict(pil_image)
+                # We store the prediction to be able to load it later
+                self.prediction_manager.predict(images=[image])
 
             sequence_results.loc[len(sequence_results)] = [
                 sequence.sequence_id,  # sequence_id
@@ -135,9 +134,6 @@ class EngineEvaluator:
                 image.timedelta,  # timedelta
             ]
 
-        # We run and save the predicitons on the missing images to be able to later load them 
-        self.prediction_manager.predict(images=missing_predictions)
-
         # Clear states to reset the engine for the next sequence
         self.engine._states = {
             "-1": {
@@ -147,6 +143,7 @@ class EngineEvaluator:
                 "last_bbox_mask_fetch": None,
             },
         }
+
         return sequence_results
 
     def run_engine_dataset(self):

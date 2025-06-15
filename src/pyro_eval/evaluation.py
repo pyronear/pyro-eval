@@ -130,9 +130,16 @@ class EvaluationPipeline:
         }
 
         self.config["model"]["hash"] = self.model.hash
-        self.metrics.update(
-            {"config": self.config, "run_id": self.run_id, "dataset": dataset_info}
-        )
+        timings = {
+            "engine" : self.metrics.get("engine_metrics", {}).get("duration"),
+            "model" : self.metrics.get("model_metrics", {}).get("duration"),
+        }
+        self.metrics.update({
+            "config": self.config,
+            "run_id": self.run_id,
+            "dataset": dataset_info,
+            "timing" : timings,
+        })
 
         metrics_dump = make_dict_json_compatible(self.metrics)
 

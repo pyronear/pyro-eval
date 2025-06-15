@@ -275,11 +275,12 @@ def timing(name: str):
             start = time.time()
             result = func(*args, **kwargs)
             end = time.time()
-            logging.info(f"{name} executed in {end - start:.4f} seconds")
+            duration = end - start
+            logging.info(f"{name} executed in {duration:.4f} seconds")
+            result["timing"] = duration
             return result
         return wrapper
     return decorator
-
 
 def get_class_default_params(class_name):
     """
