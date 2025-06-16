@@ -114,9 +114,10 @@ class EngineEvaluator:
 
         for image in sequence.images:
             # Run prediction on a single image
+            image.prediction = self.prediction_manager.predictions.get(image.name, None) 
             if image.prediction is not None:
                 # Use the previously computed prediction stored in the prediciton json file
-                confidence = self.engine.predict(frame=None, fake_pred=np.array(image.prediction))
+                confidence = self.engine.predict(frame=None, fake_pred=np.array(image.prediction).reshape(-1, 5))
             else:
                 pil_image = image.load()
                 confidence = self.engine.predict(pil_image)

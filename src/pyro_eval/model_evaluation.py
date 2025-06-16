@@ -4,7 +4,7 @@ from .dataset import EvaluationDataset
 from .model import Model
 from .path_manager import get_prediction_path
 from .prediction_manager import PredictionManager
-from .utils import compute_metrics, find_matches, make_dict_json_compatible, timing
+from .utils import compute_metrics, find_matches, timing
 
 
 class ModelEvaluator:
