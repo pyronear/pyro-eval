@@ -1,6 +1,5 @@
 data/datasets/**/
 data/evaluation/**/
-data/predictions/*.json
 data/models/**/
 data/models/*.pt
 data/models/*.onnx
