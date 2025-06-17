@@ -131,8 +131,8 @@ class EvaluationPipeline:
 
         self.config["model"]["hash"] = self.model.hash
         timings = {
-            "engine" : self.metrics.get("engine_metrics", {}).get("duration"),
-            "model" : self.metrics.get("model_metrics", {}).get("duration"),
+            "engine" : self.metrics.get("engine_metrics", {}).get("timing"),
+            "model" : self.metrics.get("model_metrics", {}).get("timing"),
         }
         self.metrics.update({
             "config": self.config,
