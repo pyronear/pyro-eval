@@ -28,6 +28,12 @@ def make_cli_parser() -> argparse.ArgumentParser:
         required=True,
     )
     parser.add_argument(
+        "--dir-temporal-dataset",
+        help="directory containing the temporal dataset to evaluate the engine on",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument(
         "--dir-save",
         help="directory to save the results",
         type=Path,
@@ -59,6 +65,12 @@ def validate_parsed_args(args: dict) -> bool:
     if not args["dir_dataset"].exists() and not args["dir_dataset"].is_dir():
         logging.error(f"invalid --dir-dataset")
         return False
+    if (
+        not args["dir_temporal_dataset"].exists()
+        and not args["dir_temporal_dataset"].is_dir()
+    ):
+        logging.error(f"invalid --dir-temporal-dataset")
+        return False
 
     return True
 
@@ -74,6 +86,7 @@ if __name__ == "__main__":
         logger.info(args)
         device = args["device"]
         dir_dataset = args["dir_dataset"]
+        dir_temporal_dataset = args["dir_dataset"]
         dir_models = args["dir_models"]
         dir_save = args["dir_save"]
         logger.info(
@@ -81,11 +94,22 @@ if __name__ == "__main__":
         )
 
         # Instanciate Dataset
-        dataset = EvaluationDataset(
-            datapath=dir_dataset,
-            dataset_ID=dir_dataset.stem,
-        )
-        dataset.dump()
+        dataset = {
+            "model": EvaluationDataset(
+                datapath=dir_dataset,
+                dataset_ID=dir_dataset.stem,
+            ),
+            "engine": EvaluationDataset(
+                datapath=dir_temporal_dataset,
+                dataset_ID=dir_temporal_dataset.stem,
+            ),
+        }
+
+        # dataset = EvaluationDataset(
+        #     datapath=dir_dataset,
+        #     dataset_ID=dir_dataset.stem,
+        # )
+        # dataset.dump()
 
         # Launch Evaluation
 
@@ -119,3 +143,12 @@ if __name__ == "__main__":
             )
             evaluation.run()
             evaluation.save_metrics(dir_save)
+
+
+# poetry run python ./scripts/run_evaluation.py \
+#   --dir-models ./data/models/selected \
+#   --dir-dataset ./data/datasets/wildfire_test/ \
+#   --dir-temporal-dataset ./data/datasets/wildfire_test_temporal/ \
+#   --dir-save ./data/evaluation/runs/ \
+#   --device cuda \
+#   --loglevel info
