@@ -144,7 +144,7 @@ if __name__ == "__main__":
         logger.info(args)
         device = args["device"]
         dir_dataset = args["dir_dataset"]
-        dir_temporal_dataset = args["dir_dataset"]
+        dir_temporal_dataset = args["dir_temporal_dataset"]
         dir_models = args["dir_models"]
         dir_save = args["dir_save"]
         logger.info(
@@ -170,8 +170,7 @@ if __name__ == "__main__":
         logger.info(
             f"Found {len(filepaths_models)} model in {dir_models}: {filepaths_models}"
         )
-        config = get_config()
-
+        config = get_config(args)
         for model_path in filepaths_models:
             config["model_path"] = str(model_path)
             logger.info(f"Evaluating the model with config {config}")
