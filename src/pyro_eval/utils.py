@@ -5,13 +5,13 @@ import numpy as np
 import os
 import random
 import re
+import subprocess
 import time
 from datetime import datetime
 from functools import wraps
 from pathlib import PosixPath
 from pandas import Timedelta
 from ultralytics import YOLO
-
 
 EXTENSIONS = [".jpg", ".png", ".tif", ".jpeg", ".tiff"]
 
@@ -293,3 +293,19 @@ def get_class_default_params(class_name):
         for name, param in signature.parameters.items()
         if param.default is not inspect.Parameter.empty and name != 'self'
     }
+
+
+def get_git_revision(file: str) -> str:
+    """
+    Return git commit hash from an external lib
+    Call : hash = get_git_revision(lib.__file__)
+    """
+    lib_path = os.path.dirname(file)
+    repo_root = os.path.abspath(os.path.join(lib_path, ".."))
+    try:
+        return subprocess.check_output(
+            ['git', '-C', repo_root, 'rev-parse', 'HEAD'],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except subprocess.CalledProcessError:
+        return "unknown"
