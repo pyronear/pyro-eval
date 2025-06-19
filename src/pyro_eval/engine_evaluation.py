@@ -277,7 +277,7 @@ class EngineEvaluator:
         )
 
         if not tp_sequences["detection_delay"].isnull().all():
-            avg_detection_delay = tp_sequences["detection_delay"].dropna().mean()
+            avg_detection_delay = tp_sequences["detection_delay"].dropna().mean().total_seconds() / 60
             logging.info(
                 f"Avg. delay before detection (TP sequences): {avg_detection_delay}"
             )

@@ -68,7 +68,7 @@ def build_dataframe(run_dirs, csv_path=None):
                 "Sequence TP": seq_metrics.get("tp"),
                 "Sequence FN": seq_metrics.get("fn"),
                 "Sequence TN": seq_metrics.get("tn"),
-                "Avg Detection Delay (min)" : timedelta_string_to_minutes(seq_metrics.get("avg_detection_delay")),
+                "Avg Detection Delay" : seq_metrics.get("avg_detection_delay"),
                 "Image Precision": img_metrics.get("precision"),
                 "Image Recall": img_metrics.get("recall"),
                 "Image F1": img_metrics.get("f1"),
@@ -83,22 +83,6 @@ def build_dataframe(run_dirs, csv_path=None):
         df.to_csv(csv_path)
     return df
 
-def timedelta_string_to_minutes(timedelta_str):
-    match = re.search(r'(\d+) days (\d+):(\d+):(\d+\.\d+)', timedelta_str)
-
-    if not match:
-        logging.error(f"Invalid timedelta format, conversion impossible : {timedelta_str}")
-
-    days = int(match.group(1))
-    hours = int(match.group(2))
-    minutes = int(match.group(3))
-    seconds = float(match.group(4))
-
-    total_seconds = (days * 24 * 3600) + (hours * 3600) + (minutes * 60) + seconds
-
-    total_minutes = total_seconds / 60
-
-    return total_minutes
 
 def export_google_sheet(df, sheet_name, key_column="run_id"):
     """
@@ -161,7 +145,7 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
         "Sequence TP",
         "Sequence FN",
         "Sequence TN",
-        "Avg Detection Delay (min)",
+        "Avg Detection Delay",
         "Image Precision",
         "Image Recall",
         "Image F1",
@@ -219,11 +203,41 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
     logging.info(f"{nb_added} runs added.")
     logging.info(f"{nb_updated} runs updated.")
 
+def clear_google_sheet(sheet_name):
+    """
+    Clear all data rows (except header) from all worksheets in the given Google Sheet.
+    Keeps the headers and formatting.
+    """
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = ServiceAccountCredentials.from_json_keyfile_name(credentials, scope)
+    client = gspread.authorize(creds)
+
+    try:
+        spreadsheet = client.open(sheet_name)
+    except Exception as e:
+        logging.error(f"Unable to open Google sheet : {e}")
+        return
+
+    for worksheet in spreadsheet.worksheets():
+        data = worksheet.get_all_values()
+        if len(data) > 1:
+            # Keep headers (first row), clear everything else
+            num_rows = len(data)
+            num_cols = len(data[0])
+            cell_range = f"A2:{gspread.utils.rowcol_to_a1(num_cols, num_rows)}"
+            worksheet.batch_clear([cell_range])
+            logging.info(f"Cleared worksheet: {worksheet.title}")
+        else:
+            logging.info(f"No data to clear in worksheet: {worksheet.title}")
 
 if __name__ == "__main__":
 
-    run_dirs = [run for run in glob("/Users/theocayla/Documents/Dev/Pyronear/pyro-eval/data/evaluation/*") if "run" in run]
+    run_dirs = []
 
     df = build_dataframe(run_dirs, csv_path=None)
     sheet_name = "Pyro Metrics"
+    clear_google_sheet(sheet_name=sheet_name)
     export_google_sheet(df, sheet_name, key_column="Run ID")
