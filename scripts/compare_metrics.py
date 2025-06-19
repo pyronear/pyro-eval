@@ -239,5 +239,8 @@ if __name__ == "__main__":
 
     df = build_dataframe(run_dirs, csv_path=None)
     sheet_name = "Pyro Metrics"
-    clear_google_sheet(sheet_name=sheet_name)
+    export_google_sheet(df, sheet_name, key_column="Run ID")
+    
+    # Update another sheet that won't be regularly cleaned and can be used as an archive
+    sheet_name = "Pyro Metrics Archive"
     export_google_sheet(df, sheet_name, key_column="Run ID")
