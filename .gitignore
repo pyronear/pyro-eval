@@ -3,4 +3,5 @@ data/evaluation/**/
 data/models/**/
 data/models/*.pt
 data/models/*.onnx
+credentials/*.json
 __pycache__

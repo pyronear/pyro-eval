@@ -1,22 +1,76 @@
 import json
 import logging
-import re
+import os
 from glob import glob
 from pathlib import Path
 
 import gspread
 import pandas as pd
 from gspread_dataframe import get_as_dataframe, set_with_dataframe
+from google.oauth2.service_account import Credentials
 from oauth2client.service_account import ServiceAccountCredentials
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-credentials = (
-    "/Users/theocayla/Documents/Dev/GoogleAPI/pyro-metrics-459816-9ef5ab17ce1c.json"
-)
+current_dir = os.path.dirname(__file__)
+credentials_path = os.path.abspath(os.path.join(current_dir, '..', 'credentials', 'pyro-metrics-creds.json'))
 
+sheets_config = {
+
+    "Config" : [
+        "Run ID",
+        "Model Path",
+        "Model Dataset ID",
+        "Model Dataset Hash",
+        "Model Hash",
+        "Number of images (Model dataset)",
+        "Engine Dataset ID",
+        "Engine Dataset Hash",
+        "Number of images (Engine dataset)",
+        "Number of sequences (Engine dataset)",
+    ],
+    "Model" : [
+        "Run ID",
+        "Model Precision",
+        "Model Recall",
+        "Model F1",
+        "Model FP",
+        "Model TP",
+        "Model FN",
+        "Model TN",
+        "Model Path",
+        "Model Conf",
+        "Model IoU",
+        "Model Imgsz",
+        "Model Dataset Hash",
+        "Model Dataset ID",
+    ],
+    "Engine" : [
+        "Run ID",
+        "Sequence Precision",
+        "Sequence Recall",
+        "Sequence F1",
+        "Sequence FP",
+        "Sequence TP",
+        "Sequence FN",
+        "Sequence TN",
+        "Avg Detection Delay",
+        "Image Precision",
+        "Image Recall",
+        "Image F1",
+        "Image FP",
+        "Image TP",
+        "Image FN",
+        "Model Path",
+        "Engine Conf thresh",
+        "Engine Nb consecutive frames",
+        "Engine Max Bbox Size",
+        "Engine Dataset Hash",
+        "Engine Dataset ID",
+    ]
+}
 
 def build_dataframe(run_dirs, csv_path=None):
     rows = []
@@ -84,94 +138,44 @@ def build_dataframe(run_dirs, csv_path=None):
     return df
 
 
-def export_google_sheet(df, sheet_name, key_column="run_id"):
-    """
-    Dumps a csv uin a google sheet
-    If the sheet already exists, update the data and upload
-    Use key_column as an identifier to see what's changed
-    """
-    # Google API Atuthentification
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(credentials, scope)
-    client = gspread.authorize(creds)
+class GoogleSheetExporter:
 
-    # Open google sheet
-    try:
-        spreadsheet = client.open(sheet_name)
-    except Exception as e:
-        logging.error(f"Unable to open Google sheet : {e}")
+    def __init__(self, spreadsheet_name):
+        self.spreadsheet_name = spreadsheet_name
+        self.client = self._authenticate()
+        self.spreadsheet = self._open_spreadsheet()
 
-    df[key_column] = df[key_column].astype(str)
+    def _authenticate(self):
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+        return gspread.authorize(creds)
 
-    config_cols = [
-        "Run ID",
-        "Model Path",
-        "Model Dataset ID",
-        "Model Dataset Hash",
-        "Model Hash",
-        "Number of images (Model dataset)",
-        "Engine Dataset ID",
-        "Engine Dataset Hash",
-        "Number of images (Engine dataset)",
-        "Number of sequences (Engine dataset)",
-    ]
-
-    model_cols = [
-        "Run ID",
-        "Model Precision",
-        "Model Recall",
-        "Model F1",
-        "Model FP",
-        "Model TP",
-        "Model FN",
-        "Model TN",
-        "Model Path",
-        "Model Conf",
-        "Model IoU",
-        "Model Imgsz",
-        "Model Dataset Hash",
-        "Model Dataset ID",
-    ]
-
-    engine_cols = [
-        "Run ID",
-        "Sequence Precision",
-        "Sequence Recall",
-        "Sequence F1",
-        "Sequence FP",
-        "Sequence TP",
-        "Sequence FN",
-        "Sequence TN",
-        "Avg Detection Delay",
-        "Image Precision",
-        "Image Recall",
-        "Image F1",
-        "Image FP",
-        "Image TP",
-        "Image FN",
-        "Model Path",
-        "Engine Conf thresh",
-        "Engine Nb consecutive frames",
-        "Engine Max Bbox Size",
-        "Engine Dataset Hash",
-        "Engine Dataset ID",
-    ]
-
-    df_model = df[model_cols].copy()
-    df_engine = df[engine_cols].copy()
-    df_config = df[config_cols].copy()
-    logging.info("Updating google sheet")
-
-    def update_worksheet(sheet_name, new_df, key_column="Run ID"):
+    def _open_spreadsheet(self):
         try:
-            worksheet = spreadsheet.worksheet(sheet_name)
-        except gspread.exceptions.WorksheetNotFound:
-            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=200, cols=50)
+            return self.client.open(self.spreadsheet_name)
+        except Exception as e:
+            logging.error(f"Unable to open Google Sheet: {e}")
+            raise
 
-        # Retrieve existing content
+    def clear_sheets(self, columns):
+        for worksheet_name, columns in sheets_config.items():
+            try:
+                worksheet = self.spreadsheet.worksheet(worksheet_name)
+            except gspread.exceptions.WorksheetNotFound:
+                worksheet = self.spreadsheet.add_worksheet(title=worksheet_name, rows=200, cols=50)
+            worksheet.clear()
+            set_with_dataframe(worksheet, pd.DataFrame(columns=columns))
+            logging.info(f"{worksheet_name} cleared and initialized with columns")
+
+    def update_sheet(self, worksheet_name, new_df, key_column="Run ID"):
+        try:
+            worksheet = self.spreadsheet.worksheet(worksheet_name)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = self.spreadsheet.add_worksheet(title=worksheet_name, rows=200, cols=50)
+
         try:
             existing_df = get_as_dataframe(worksheet).dropna(how="all")
             existing_df[key_column] = existing_df[key_column].astype(str)
@@ -179,68 +183,54 @@ def export_google_sheet(df, sheet_name, key_column="run_id"):
             existing_df = pd.DataFrame(columns=new_df.columns)
 
         new_df[key_column] = new_df[key_column].astype(str)
-
-        # Filter old dataframe to remove runs present in the new dataframe
-        filtered_existing = existing_df[
-            ~existing_df[key_column].isin(new_df[key_column])
-        ]
-
-        # Concatenate new dataframe to the old one
+        filtered_existing = existing_df[~existing_df[key_column].isin(new_df[key_column])]
         final_df = pd.concat([filtered_existing, new_df], ignore_index=True)
 
-        # Write everything in the sheet
         worksheet.clear()
         set_with_dataframe(worksheet, final_df)
 
         nb_updated = len(existing_df) - len(filtered_existing)
         nb_added = len(final_df) - len(existing_df)
-        logging.info(f"{sheet_name} sheet updated")
-        return (nb_updated, nb_added)
+        logging.info(f"{worksheet_name} updated: {nb_added} added, {nb_updated} updated")
+        return nb_added, nb_updated
 
-    update_worksheet("Config", df_config)
-    update_worksheet("Model", df_model)
-    nb_updated, nb_added = update_worksheet("Engine", df_engine)
-    logging.info(f"{nb_added} runs added.")
-    logging.info(f"{nb_updated} runs updated.")
+    def export_dataframe(self, df):
+        df["Run ID"] = df["Run ID"].astype(str)
+        for sheet_name, columns in sheets_config.items():
+            self.update_sheet(sheet_name, df[columns])
 
-def clear_google_sheet(sheet_name):
-    """
-    Clear all data rows (except header) from all worksheets in the given Google Sheet.
-    Keeps the headers and formatting.
-    """
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
+def create_spreadsheet(spreadsheet_name, email_adress=None):
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
     ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(credentials, scope)
-    client = gspread.authorize(creds)
 
-    try:
-        spreadsheet = client.open(sheet_name)
-    except Exception as e:
-        logging.error(f"Unable to open Google sheet : {e}")
-        return
+    # Authentification
+    creds = Credentials.from_service_account_file(credentials_path, scopes=scopes)
+    gc = gspread.authorize(creds)
 
-    for worksheet in spreadsheet.worksheets():
-        data = worksheet.get_all_values()
-        if len(data) > 1:
-            # Keep headers (first row), clear everything else
-            num_rows = len(data)
-            num_cols = len(data[0])
-            cell_range = f"A2:{gspread.utils.rowcol_to_a1(num_cols, num_rows)}"
-            worksheet.batch_clear([cell_range])
-            logging.info(f"Cleared worksheet: {worksheet.title}")
-        else:
-            logging.info(f"No data to clear in worksheet: {worksheet.title}")
+    spreadsheet = gc.create(spreadsheet_name)
+
+    if email_adress is not None:
+        spreadsheet.share(email_address=email_adress, perm_type="user", role="writer")
+
 
 if __name__ == "__main__":
 
-    run_dirs = []
+    eval_dir = os.path.abspath(os.path.join(current_dir, '..', 'data/evaluation'))
+
+    run_dirs = [run for run in glob(f"{eval_dir}/*") if "run-20250619" in run]
 
     df = build_dataframe(run_dirs, csv_path=None)
-    sheet_name = "Pyro Metrics"
-    export_google_sheet(df, sheet_name, key_column="Run ID")
-    
-    # Update another sheet that won't be regularly cleaned and can be used as an archive
-    sheet_name = "Pyro Metrics Archive"
-    export_google_sheet(df, sheet_name, key_column="Run ID")
+    exporter = GoogleSheetExporter("Pyro Metrics")
+
+    # Remove old data (optionnal)
+    exporter.clear_sheets(df.columns)
+
+    # Upload new data
+    exporter.export_dataframe(df)
+
+    # Update archive
+    archive_exporter = GoogleSheetExporter("Pyro Metrics Archive")
+    archive_exporter.export_dataframe(df)
+
