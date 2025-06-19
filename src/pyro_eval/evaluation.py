@@ -212,5 +212,5 @@ class EvaluationPipeline:
                 f"       F1 Score:  {format_metric(engine_sequence_metrics.get('f1', 'N/A'))}"
             )
             logging.info(
-                f"       Average Detection Delay:  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}"
+                f"       Average Detection Delay (min):  {format_metric(engine_sequence_metrics.get('avg_detection_delay', 'N/A'))}"
             )
