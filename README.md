@@ -229,7 +229,7 @@ The file contains:
 
 `Sequence` : object that represents a sequence of images.
 - `sequence.images`: list of CustomImage objects, corresponding to image belonging to a single sequence
-- `sequence.sequence_id`: name of the sequence (name of the first image without extension)
+- `sequence.id`: name of the sequence (name of the first image without extension)
 - `sequence.sequence_start`: timestamp of the first image of the sequence
 
 ### CustomImage()

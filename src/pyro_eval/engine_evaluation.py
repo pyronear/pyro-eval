@@ -125,7 +125,7 @@ class EngineEvaluator:
                 self.prediction_manager.predict(images=[image])
 
             sequence_results.loc[len(sequence_results)] = [
-                sequence.sequence_id,  # sequence_id
+                sequence.id,  # sequence_id
                 image.path,  # image
                 sequence.label,  # sequence_label
                 image.boxes,  # ground_truth_boxes

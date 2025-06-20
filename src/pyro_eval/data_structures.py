@@ -76,7 +76,7 @@ class Sequence:
     """
 
     def __init__(self, sequence_id: str, images: list[CustomImage] = []):
-        self.sequence_id = sequence_id
+        self.id = sequence_id
         self.images = images
         self.sequence_start = self.images[0].timestamp
 
