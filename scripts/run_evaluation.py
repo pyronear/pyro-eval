@@ -47,6 +47,42 @@ def make_cli_parser() -> argparse.ArgumentParser:
         default="cpu",
     )
     parser.add_argument(
+        "--nb-consecutive-frames",
+        help="number of consecutive frames taken into accoun in the Engine.",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--engine-conf-thresh",
+        help="confidence threshold used in the Engine, below which detections are filtered out.",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "--max-bbox-size",
+        help="bbox size above which detections are filtered out.",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "--iou",
+        help="IoU threshold to compute matches between detected bboxes.",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "--model-conf",
+        help="confidence threshold used in the Classifier, below which detections are filtered out.",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "--imgsz",
+        help="image size used in the model.",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
         "-log",
         "--loglevel",
         default="info",
@@ -74,6 +110,28 @@ def validate_parsed_args(args: dict) -> bool:
 
     return True
 
+def get_config(args: dict) -> bool:
+    """
+    Builds config dict from arguments
+    """
+    config = {
+        "engine" : {},
+        "model" : {},
+    }
+    if args.get("nb_consecutive_frames"):
+        config["engine"]["nb_consecutive_frames"] = args.get("nb_consecutive_frames")
+    if args.get("engine_conf_thresh"):
+        config["engine"]["conf_thresh"] = args.get("nb_consecutive_frames")
+    if args.get("max_bbox_size"):
+        config["engine"]["max_bbox_size"] = args.get("max_bbox_size")
+    if args.get("iou"):
+        config["model"]["iou"] = args.get("iou")
+    if args.get("model_conf"):
+        config["model"]["conf"] = args.get("model_conf")
+    if args.get("imgsz"):
+        config["model"]["imgsz"] = args.get("imgsz")
+    
+    return config
 
 if __name__ == "__main__":
     cli_parser = make_cli_parser()
@@ -86,7 +144,7 @@ if __name__ == "__main__":
         logger.info(args)
         device = args["device"]
         dir_dataset = args["dir_dataset"]
-        dir_temporal_dataset = args["dir_dataset"]
+        dir_temporal_dataset = args["dir_temporal_dataset"]
         dir_models = args["dir_models"]
         dir_save = args["dir_save"]
         logger.info(
@@ -105,12 +163,6 @@ if __name__ == "__main__":
             ),
         }
 
-        # dataset = EvaluationDataset(
-        #     datapath=dir_dataset,
-        #     dataset_ID=dir_dataset.stem,
-        # )
-        # dataset.dump()
-
         # Launch Evaluation
 
         # Compare different models
@@ -118,23 +170,9 @@ if __name__ == "__main__":
         logger.info(
             f"Found {len(filepaths_models)} model in {dir_models}: {filepaths_models}"
         )
-
+        config = get_config(args)
         for model_path in filepaths_models:
-            config = {"model_path": str(model_path)}
-            logger.info(f"Evaluating the model with config {config}")
-            evaluation = EvaluationPipeline(
-                dataset=dataset,
-                config=config,
-                device=device,
-            )
-            evaluation.run()
-            evaluation.save_metrics(dir_save)
-
-        for nb_consecutive_frames in [4, 5, 6, 7, 8]:
-            config = {
-                "model_path": str(filepaths_models[0]),
-                "nb_consecutive_frames": nb_consecutive_frames,
-            }
+            config["model_path"] = str(model_path)
             logger.info(f"Evaluating the model with config {config}")
             evaluation = EvaluationPipeline(
                 dataset=dataset,

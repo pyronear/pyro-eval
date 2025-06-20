@@ -1,7 +1,7 @@
 data/datasets/**/
 data/evaluation/**/
-data/predictions/**/
 data/models/**/
 data/models/*.pt
 data/models/*.onnx
+credentials/*.json
 __pycache__

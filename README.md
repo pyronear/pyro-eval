@@ -20,6 +20,8 @@ git clone git@github.com:earthtoolsmaker/pyro-eval.git
 poetry install
 ```
 
+This repo the pyro-engine repo as a dependency : (https://github.com/pyronear/pyro-engine), make sure to run poetry install to retrieve changes made on this repo.
+
 One can use the default `./data` folder to store datasets and models to run
 evaluation on:
 
@@ -35,11 +37,16 @@ $ tree -L 3
 .
 ├── datasets
 │   ├── gitkeep
-│   └── wildfire_test
+│   ├── wildfire_test
+│   │   ├── data.yaml
+│   │   ├── images
+│   │   ├── labels
+│   │   └── wildfire_test.csv
+│   └── wildfire_test_temporal
 │       ├── data.yaml
 │       ├── images
 │       ├── labels
-│       └── wildfire_test.csv
+│       └── wildfire_test_temporal.csv
 ├── evaluation
 │   ├── gitkeep
 │   └── runs
@@ -60,6 +67,7 @@ This script runs the evaluation of the models on the provided test dataset.
 poetry run python ./scripts/run_evaluation.py \
   --dir-models ./data/models/ \
   --dir-dataset ./data/datasets/wildfire_test/ \
+  --dir-temporal-dataset ./data/datasets/wildfire_test_temporal/ \
   --dir-save ./data/evaluation/runs/ \
   --device cuda \
   --loglevel info
@@ -108,6 +116,8 @@ dataset_ID = "dataset_v0"
 dataset = EvaluationDataset(datapath, dataset_ID=dataset_ID)
 ```
 
+`dir-dataset` is used to evaluate the model, while `dir-temporal-dataset` is used to evaluate the engine on sequences of images.
+
 ### EvaluationPipeline
 
 The EvaluationPipeline class helps launching the evaluation on a given dataset.
@@ -128,18 +138,24 @@ The object can be instanciated with the following parameters as input:
 - `self.dataset` : `EvaluationDataset` object
 - `self.config` : config dictionary as described below
 - `self.run_id` : ID of the run, will be generated if not specified
-- `self.resume` : if True, we check for existing results in the result folder
-associated to this `run_id`
+- `self.use_existing_predictions` : if True, we check for existing model predicitons in the predicition folder, each prediction is saved in a json file named after the model hash. Model hash is also saved in a hashfile next to the weight file.
 
 `config` is a dictionnary that describes the run configuration, if not in the
-dictionnary, the parameters will take the default values shown below.
+dictionnary, the parameters will take the default values from the Engine and Classifier classes in pyro-engine.
 
 ```json
 {
-    "nb_consecutive_frames" : 4,
-    "conf_thresh" : 0.15,
-    "max_bbox_size" : 0.4,
-    "iou" : 0.1,
+    "model_path" : "path/to/model.pt",
+    "model" : {
+        "iou" : 0,
+        "conf" : 0.15,
+        "imgsz" : 1024,
+    },
+    "engine" : {
+        "conf_thresh" : 0.15,
+        "max_bbox_size" : 0.4,
+        "nb_consecutive_frames" : 8,
+    },
     "eval" : ["model", "engine"]
 }
 ```
@@ -147,7 +163,8 @@ dictionnary, the parameters will take the default values shown below.
 With the following keys:
 
 - __nb_consecutive_frames__ (int): Number of consecutive frames taken into accoun in the Engine
-- __conf_thresh__ (float in [0.,1.]): Confidence threshold, below which detections are filtered out
+- __conf_thresh__ (float in [0.,1.]): Confidence threshold used in the Engine, below which detections are filtered out
+- __conf__ (float in [0.,1.]): Confidence threshold used in the Classifier, below which detections are filtered out
 - __max_bbox_size__ (float in [0., 1.]): Bbox size above which detections are filtered out
 - __iou__ (float in [0., 1.]): IoU threshold to compute matches between detected bboxes
 - __eval__ (array of strs): Parts of the evaluation pipeline
@@ -161,16 +178,23 @@ is used to configure the runs:
 configs = [
         {
             "model_path" : "path/to/model_1.pt",
-            "conf_thresh" : 0.1,
+            "engine": {
+                "conf_thresh" : 0.1,
+            },
         },
         {
             "model_path" : "path/to/model_2.onnx",
-            "max_bbox_size" : 0.12,
-            "eval" : ["engine"]
+            "engine": {
+                "max_bbox_size" : 0.12,
+            },
+            "eval" : ["engine"],
         },
         {
             "model_path" : "path/to/model_3.pt",
-            "eval" : ["engine"]
+            "model" : {
+                "iou" : 0,
+            },
+            "eval" : ["engine"],
         },
     ]
 
@@ -205,7 +229,7 @@ The file contains:
 
 `Sequence` : object that represents a sequence of images.
 - `sequence.images`: list of CustomImage objects, corresponding to image belonging to a single sequence
-- `sequence.sequence_id`: name of the sequence (name of the first image without extension)
+- `sequence.id`: name of the sequence (name of the first image without extension)
 - `sequence.sequence_start`: timestamp of the first image of the sequence
 
 ### CustomImage()
