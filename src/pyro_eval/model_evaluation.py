@@ -94,15 +94,18 @@ class ModelEvaluator:
         metrics = compute_metrics(
             false_positives=nb_fp, true_positives=nb_tp, false_negatives=nb_fn
         )
-
         fpr, tpr, thresholds = roc_curve(y_true, y_scores)
         auc_score = roc_auc_score(y_true, y_scores)
+        
+        # Replace np.inf by a high value to be able to dump in a json
+        max_threshold = 1e10
+        thresholds = [max_threshold if np.isinf(val) else np.round(val, 5) for val in thresholds]
 
         self.roc_data = {
-                "fpr": fpr.tolist(),
-                "tpr": tpr.tolist(),
-                "thresholds": thresholds.tolist(),
-                "auc": auc_score,
+            "fpr": np.round(fpr, 5).tolist(),
+            "tpr": np.round(tpr, 5).tolist(),
+            "thresholds": np.round(thresholds, 5).tolist(),
+            "auc": auc_score,
             }
 
         self.save_roc_curve()
