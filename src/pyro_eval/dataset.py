@@ -154,7 +154,7 @@ class EvaluationDataset:
                 for _, row in sequence_df.iterrows()
             ]
 
-            self.sequences.append(Sequence(sequence_id, images=custom_images))
+            self.sequences.append(Sequence(images=custom_images, sequence_number=len(self.sequences)))
 
     def determine_sequences(self, image_list, annotations, timestamps, max_delta=30):
         """

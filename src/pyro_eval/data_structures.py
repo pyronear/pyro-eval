@@ -75,10 +75,15 @@ class Sequence:
     Objects that contains a list of images from a single sequence
     """
 
-    def __init__(self, sequence_id: str, images: list[CustomImage] = []):
-        self.id = sequence_id
+    def __init__(
+            self,
+            images: list[CustomImage] = [],
+            sequence_number: int = None,
+            ):
         self.images = images
         self.sequence_start = self.images[0].timestamp
+        self.sequence_number = sequence_number
+        self.id = self.get_sequence_id()
 
     @property
     def label(self):
@@ -90,6 +95,18 @@ class Sequence:
     def get_sequence_label(self):
         image_labels = [image.label for image in self.images]
         return any(image_labels)
+
+    def get_sequence_id(self):
+        """
+        Retrieve information from the first image name to following the following naming convention:
+        {date}_{origin}_{organization}_{camera}-{azimuth}-{sequence-number}
+        A usual image name is force-06_cabanelle-327_2024-04-03T09-55-17.jpg
+        If the information is not available, sequence id will be the raw name of the first image
+        """
+        parsing = parse_date_from_filepath(self.images[0].name)
+        date = parsing["date"].strftime("%Y-%m-%dT%H-%M-%S")
+        sequence_number = self.sequence_number or ""
+        return date + parsing["prefix"] + str(sequence_number)
 
     def add_image(self, image_path, sequence_id, timedelta, label):
         self.images.append(CustomImage(image_path, sequence_id, timedelta, label))
