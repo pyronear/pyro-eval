@@ -61,7 +61,7 @@ def parse_date_from_filepath(filepath):
 def make_dict_json_compatible(data):
     """
     Replaces values to be able dump a dict in a json:
-        - Replace True/False by "true"/"false"
+        - Replace True/False by "true"/"false"  
         - Convert Timedelta to str
         - Convert int64 to int
     """
@@ -70,7 +70,7 @@ def make_dict_json_compatible(data):
     elif isinstance(data, list):
         return [make_dict_json_compatible(item) for item in data]
     elif isinstance(data, np.bool_):
-        return "True" if data else "False"
+        return bool(data)
     elif isinstance(data, PosixPath):
         return str(data)
     elif isinstance(data, Timedelta):
@@ -79,7 +79,7 @@ def make_dict_json_compatible(data):
     elif np.issubdtype(type(data), np.integer):
         # Convert int64 in native int
         return int(data)
-    elif np.issubdtype(type(data), np.float32):
+    elif np.issubdtype(type(data), np.floating):
         # Convert int64 in native int
         return float(data)
     elif isinstance(data, np.ndarray):
