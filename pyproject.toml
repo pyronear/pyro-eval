@@ -31,3 +31,4 @@ onnxslim = "^0.1.53"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^5.3.2"
+dvc = "^3.60.1"
