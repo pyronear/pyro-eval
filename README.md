@@ -12,6 +12,8 @@ the performance of pyronear algorithms. It is split in two parts:
 
 ## Installation
 
+### Python dependencies
+
 Make sure you have [Poetry](https://python-poetry.org/docs/) installed, then
 clone this repo and install dependencies:
 
@@ -21,6 +23,21 @@ poetry install
 ```
 
 This repo the pyro-engine repo as a dependency : (https://github.com/pyronear/pyro-engine), make sure to run poetry install to retrieve changes made on this repo.
+
+### Data dependencies
+
+To get the data dependencies one can use DVC - To fully use this
+repository you would need access to our DVC remote storage which is
+currently reserved for Pyronear members. On request, you will be provided with
+AWS credentials to access our remote storage.
+
+Pull all the data files tracked by DVC using this command:
+
+```sh
+dvc pull
+```
+
+### Scaffolding
 
 One can use the default `./data` folder to store datasets and models to run
 evaluation on:
