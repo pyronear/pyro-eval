@@ -168,7 +168,7 @@ class GoogleSheetExporter:
                 worksheet = self.spreadsheet.add_worksheet(title=worksheet_name, rows=200, cols=50)
             worksheet.clear()
             set_with_dataframe(worksheet, pd.DataFrame(columns=columns))
-            logging.info(f"{worksheet_name} cleared and initialized with columns")
+            logging.info(f"{worksheet_name} cleared.")
 
     def update_sheet(self, worksheet_name, new_df, key_column="Run ID"):
         try:
@@ -182,7 +182,7 @@ class GoogleSheetExporter:
         except Exception:
             existing_df = pd.DataFrame(columns=new_df.columns)
 
-        new_df[key_column] = new_df[key_column].astype(str)
+        new_df.loc[:, key_column] = new_df[key_column].astype(str)
         filtered_existing = existing_df[~existing_df[key_column].isin(new_df[key_column])]
         final_df = pd.concat([filtered_existing, new_df], ignore_index=True)
 
@@ -219,7 +219,8 @@ if __name__ == "__main__":
 
     eval_dir = os.path.abspath(os.path.join(current_dir, '..', 'data/evaluation'))
 
-    run_dirs = [run for run in glob(f"{eval_dir}/*") if "run-20250619" in run]
+    run_dirs = [run for run in glob(f"{eval_dir}/*") if "run-20250626-13" in run or "run-20250626-14" in run]
+    # run_dirs += [run for run in glob(f"{eval_dir}/*") if "run-20250624-13" in run]
 
     df = build_dataframe(run_dirs, csv_path=None)
     exporter = GoogleSheetExporter("Pyro Metrics")

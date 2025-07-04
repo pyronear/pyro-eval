@@ -5,6 +5,7 @@ from collections import deque
 
 import numpy as np
 import pandas as pd
+
 from pyroengine.engine import Engine
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 
@@ -36,6 +37,7 @@ class EngineEvaluator:
         self.model = model
         self.prediction_manager = prediction_manager
         self.config = config["engine"]
+        self.model_config = config["model"]
         self.save = save  # If save is True we regularly dump results and the config used
         self.run_id = run_id if run_id else generate_run_id()
         self.results_data = [
@@ -98,6 +100,7 @@ class EngineEvaluator:
             conf_thresh=self.config["conf_thresh"],
             max_bbox_size=self.config["max_bbox_size"],
             model_path=self.run_model_path,
+            model_conf_thresh=self.model_config["conf"]
         )
 
         return engine
@@ -117,11 +120,12 @@ class EngineEvaluator:
             image.prediction = self.prediction_manager.predictions.get(image.name, None) 
             if image.prediction is not None:
                 # Use the previously computed prediction stored in the prediciton json file
-                confidence = self.engine.predict(frame=None, fake_pred=np.array(image.prediction).reshape(-1, 5))
+                confidence = self.engine.predict(frame=None, fake_pred=image.preds_onnx_format)
             else:
                 pil_image = image.load()
                 confidence = self.engine.predict(pil_image)
                 # We store the prediction to be able to load it later
+                # No confidence thresholding should be applied to saved predictions
                 self.prediction_manager.predict(images=[image])
 
             sequence_results.loc[len(sequence_results)] = [
