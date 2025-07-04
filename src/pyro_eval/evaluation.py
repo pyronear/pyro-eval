@@ -87,9 +87,7 @@ class EvaluationPipeline:
         model_config = config.get("model", {})
         model_config.setdefault("model_path", config.get("model_path"))
         model_config.setdefault("iou", model_default_values["iou"])
-        # model_config.setdefault("conf", model_default_values["conf"])
-        # FIXME : in the engine we instanciate with conf=0.05 but the value is hardcoded hence can't be retrieved
-        model_config.setdefault("conf", 0.05)
+        model_config.setdefault("conf", engine_default_values["model_conf_thresh"])
         model_config.setdefault("imgsz", model_default_values["imgsz"])
 
         config.setdefault("eval", ["model", "engine"])
@@ -108,6 +106,7 @@ class EvaluationPipeline:
             self.metrics["engine_metrics"] = self.engine_evaluator.evaluate()
 
         self.display_metrics()
+        return self.metrics
 
     def save_metrics(self, save_dir: Path):
         """
