@@ -7,6 +7,7 @@ import random
 import re
 import subprocess
 import time
+import toml
 from datetime import datetime
 from functools import wraps
 from pathlib import PosixPath
@@ -295,17 +296,55 @@ def get_class_default_params(class_name):
     }
 
 
-def get_git_revision(file: str) -> str:
+def _parse_pyproject_toml(package_name):
     """
-    Return git commit hash from an external lib
-    Call : hash = get_git_revision(lib.__file__)
+    This method parses pyproject.toml to retrieve the git url and revision of an installed package
     """
-    lib_path = os.path.dirname(file)
-    repo_root = os.path.abspath(os.path.join(lib_path, ".."))
+    pyproject_path = "pyproject.toml"
     try:
-        return subprocess.check_output(
-            ['git', '-C', repo_root, 'rev-parse', 'HEAD'],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
+        with open(pyproject_path, 'r') as f:
+            data = toml.load(f)
+    except:
+        logging.error(f"Unable to parse pyproject.toml to retrieve {package_name} information.")
+
+    poetry_dependencies = data.get('tool', {}).get('poetry', {}).get('dependencies', None)
+    uv_dependencies = data.get('tool', {}).get('uv', {}).get('source', {})
+    dependencies = poetry_dependencies or uv_dependencies
+    if package_name not in dependencies:
+        logging.error(f"{package_name} not found in pyproject.toml dependencies.")
+        return None
+    package_info = dependencies[package_name]
+    if "git" not in package_info:
+        logging.error(f"Missing git url or revision for {package_name} pyproject.toml dependencies.")
+        return None
+    git_url = package_info['git']
+    rev = package_info.get('rev', 'main')
+
+    return {
+        "git_url" : git_url,
+        "rev" : rev,
+    }
+
+def get_remote_commit_hash(package_name):
+    """
+    Retrieve commit hash of a remote repository using git ls-remote command
+    """
+    package_info = _parse_pyproject_toml(package_name)
+    git_url = package_info["git_url"]
+    rev = package_info["rev"]
+    try:
+        result = subprocess.run(
+            ['git', 'ls-remote', git_url, f'refs/heads/{rev}'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        if result.stdout.strip():
+            hash_full = result.stdout.split()[0]
+            return hash_full
+
+        return "Unknown"
+        
     except subprocess.CalledProcessError:
-        return "unknown"
+        return "Unknown"
