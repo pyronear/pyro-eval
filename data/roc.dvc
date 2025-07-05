@@ -1,0 +1,6 @@
+outs:
+- md5: b19adc6cb5d3d26408557fd1acdaecd7.dir
+  size: 201360
+  nfiles: 7
+  hash: md5
+  path: roc
