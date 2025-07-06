@@ -4,6 +4,49 @@ from pathlib import Path
 import pandas as pd
 from run_data import RunData, RunComparison, PROJECT_ROOT
 
+st.set_page_config(
+    page_title="Comparaison de Modèles de Détection",
+    page_icon="🔍",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# CSS personnalisé
+st.markdown("""
+<style>
+    .main-header {
+        text-align: center;
+        padding: 2rem 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+    }
+    
+    .metric-container {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .status-tp { background-color: #d4edda; color: #155724; }
+    .status-fp { background-color: #f8d7da; color: #721c24; }
+    .status-fn { background-color: #fff3cd; color: #856404; }
+    .status-tn { background-color: #d1ecf1; color: #0c5460; }
+</style>
+""", unsafe_allow_html=True)
+
+
 st.title("Compare model outputs")
 
 # Get avaialable runs
