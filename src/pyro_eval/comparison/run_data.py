@@ -109,5 +109,25 @@ class RunComparison:
 
         return pd.DataFrame(rows)
 
+    def get_change_type(status1: str, status2: str) -> str:
+        """
+        Determine the change between two statuses (improved or degraded)
+        Semantic works only if we have a reference run
+        """
+        if status1 == status2:
+            return 'unchanged'
+        
+        change = f"{status1}-to-{status2}"
+        
+        # Improvement
+        if change in ['fp-to-tp', 'fn-to-tp', 'fp-to-tn', 'fn-to-tn']:
+            return 'improved'
+        
+        # Degradations
+        if change in ['tp-to-fp', 'tp-to-fn', 'tn-to-fp', 'tn-to-fn']:
+            return 'degraded'
+        
+        return change
+
     def __iter__(self):
         return iter(self.runs)
