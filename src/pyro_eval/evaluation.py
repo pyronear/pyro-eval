@@ -13,7 +13,12 @@ from .model import Model
 from .model_evaluation import ModelEvaluator
 from .path_manager import get_prediction_path
 from .prediction_manager import PredictionManager
-from .utils import make_dict_json_compatible, generate_run_id, get_class_default_params, get_remote_commit_hash
+from .utils import (
+    make_dict_json_compatible,
+    generate_run_id,
+    get_class_default_params,
+    get_remote_commit_hash,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
