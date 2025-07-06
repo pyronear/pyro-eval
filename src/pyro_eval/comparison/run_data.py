@@ -100,16 +100,20 @@ class RunComparison:
         rows = []
 
         for image_id, models in status.items():
+            status_A = models[run_ids[0]]
+            status_B = models[run_ids[1]]
             row = {
                 "image_name": image_id,
-                run_ids[0]: models[run_ids[0]],
-                run_ids[1]: models[run_ids[1]]
+                run_ids[0]: status_A,
+                run_ids[1]: status_B,
+                "change_type" : self.get_change_type(status_A, status_B),
+                'transition': f"{status_A} → {status_B}" if status_A != status_B else status_A
             }
             rows.append(row)
 
         return pd.DataFrame(rows)
 
-    def get_change_type(status1: str, status2: str) -> str:
+    def get_change_type(self, status1: str, status2: str) -> str:
         """
         Determine the change between two statuses (improved or degraded)
         Semantic works only if we have a reference run
