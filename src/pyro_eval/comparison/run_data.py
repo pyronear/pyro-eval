@@ -94,12 +94,12 @@ class RunComparison:
                    if len(set(statuses.values())) > 1}
         return changed
 
-    def get_diff_dataframe(self, changed: Dict) -> pd.DataFrame:
+    def get_status_dataframe(self, status: Dict) -> pd.DataFrame:
 
         run_ids = [self.runs[0].run_id, self.runs[1].run_id]
         rows = []
 
-        for image_id, models in changed.items():
+        for image_id, models in status.items():
             row = {
                 "image_name": image_id,
                 run_ids[0]: models[run_ids[0]],
@@ -108,15 +108,6 @@ class RunComparison:
             rows.append(row)
 
         return pd.DataFrame(rows)
+
     def __iter__(self):
         return iter(self.runs)
-
-if __name__ == "__main__":
-    runs = [
-        RunData("run-20250705-112023-2941"),
-        RunData("run-20250705-112339-3363"),
-    ]
-    comp = RunComparison(runs)
-    diff = comp.get_changed_status(source="sequence")
-    df = comp.get_diff_dataframe(diff)
-    print(df.head())

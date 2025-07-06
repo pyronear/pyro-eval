@@ -41,14 +41,14 @@ with col2:
     compare_engine = st.button("Compare engine predictions")
 
 if compare_model:
-    diff = comparison.get_changed_status(source="model")
+    status = comparison.compare_predictions(source="model")
 elif compare_engine:
-    diff = comparison.get_changed_status(source="sequence")
+    status = comparison.compare_predictions(source="sequence")
 else:
-    diff = None
+    status = None
 
 # # --- Format DataFrame pour affichage ---
-if diff:
-    df = pd.DataFrame.from_dict(diff, orient="index")
+if status:
+    df = pd.DataFrame.from_dict(status, orient="index")
     df.index.name = "image"
     st.dataframe(df)
