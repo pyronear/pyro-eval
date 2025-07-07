@@ -4,6 +4,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 
 
@@ -95,17 +98,16 @@ class RunComparison:
         return changed
 
     def get_status_dataframe(self, status: Dict) -> pd.DataFrame:
-
-        run_ids = [self.runs[0].run_id, self.runs[1].run_id]
+        self.run_ids = [self.runs[0].run_id, self.runs[1].run_id]
         rows = []
 
         for image_id, models in status.items():
-            status_A = models[run_ids[0]]
-            status_B = models[run_ids[1]]
+            status_A = models[self.run_ids[0]]
+            status_B = models[self.run_ids[1]]
             row = {
                 "image_name": image_id,
-                run_ids[0]: status_A,
-                run_ids[1]: status_B,
+                self.run_ids[0]: status_A,
+                self.run_ids[1]: status_B,
                 "change_type" : self.get_change_type(status_A, status_B),
                 'transition': f"{status_A} → {status_B}" if status_A != status_B else status_A
             }
@@ -132,6 +134,91 @@ class RunComparison:
             return 'degraded'
         
         return change
+
+    def create_confusion_matrix(self, df: pd.DataFrame) -> go.Figure:
+        """
+        Create an inter model confusion matrix 
+        TODO: move out of the class
+        """
+        if df.empty:
+            return go.Figure()
+        
+        # Create confusion matrix
+        statuses = ['tp', 'fp', 'fn', 'tn']
+        confusion_matrix = np.zeros((len(statuses), len(statuses)))
+        
+        for i, status1 in enumerate(statuses):
+            for j, status2 in enumerate(statuses):
+                count = len(df[(df[self.run_ids[0]] == status1) & (df[self.run_ids[1]] == status2)])
+                confusion_matrix[i, j] = count
+        
+        # Créer la heatmap
+        fig = go.Figure(data=go.Heatmap(
+            z=confusion_matrix,
+            x=[s.upper() for s in statuses],
+            y=[s.upper() for s in statuses],
+            colorscale='Blues',
+            text=confusion_matrix.astype(int),
+            texttemplate="%{text}",
+            textfont={"size": 16},
+            hoverongaps=False
+        ))
+        
+        fig.update_layout(
+            title="Confusion matrix",
+            xaxis_title=self.run_ids[1],
+            yaxis_title=self.run_ids[0],
+            width=500,
+            height=500
+        )
+        
+        return fig
+
+    def create_change_distribution(self, df: pd.DataFrame) -> go.Figure:
+        """
+        Creates a graph of change distribution
+        TODO: move out of the class
+        """
+        if df.empty:
+            return go.Figure()
+        
+        change_counts = df['change_type'].value_counts()
+        
+        # Colors for different types of changes
+        colors = {
+            'unchanged': '#95a5a6',
+            'improved': '#27ae60',
+            'degraded': '#e74c3c',
+            'fp-to-tp': '#2ecc71',
+            'fn-to-tp': '#2ecc71',
+            'tp-to-fp': '#e67e22',
+            'tp-to-fn': '#e67e22'
+        }
+        
+        bar_colors = [colors.get(change, '#3498db') for change in change_counts.index]
+        
+        fig = go.Figure(data=[
+            go.Bar(
+                x=change_counts.index,
+                y=change_counts.values,
+                marker_color=bar_colors,
+                text=change_counts.values,
+                textposition='auto',
+            )
+        ])
+        
+        fig.update_layout(
+            title="Distribution of status change",
+            xaxis_title="Change type",
+            yaxis_title="Number of images",
+            xaxis_tickangle=-45
+        )
+        
+        return fig
+
+    def display_status_badge(status: str) -> str:
+        """Add color badge for status"""
+        return f'<span class="status-badge status-{status}">{status.upper()}</span>'
 
     def __iter__(self):
         return iter(self.runs)

@@ -46,6 +46,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+    <div class="main-header">
+        <h1>Run comparison</h1>
+        <p>Compare metrics and predictions on Evaluation Pipeline results</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.sidebar.header("📁 Configuration")
 
 st.title("Compare model outputs")
 
@@ -92,6 +100,59 @@ else:
 
 # # --- Format DataFrame pour affichage ---
 if status:
-    df = pd.DataFrame.from_dict(status, orient="index")
+    # df = pd.DataFrame.from_dict(status, orient="index")
+    df = comparison.get_status_dataframe(status=status)
     df.index.name = "image"
+
+    st.header("Global statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Total number of images/sequences",
+            len(df),
+            delta=None
+        )
+    
+    with col2:
+        changed_count = len(df[df["change_type"] != "unchanged"])
+        st.metric(
+            "Status changed",
+            changed_count,
+            delta=None
+        )
+    
+    with col3:
+        improved_count = len(df[df["change_type"] == 'improved'])
+        st.metric(
+            "Improved",
+            improved_count,
+            delta=f"{improved_count/len(df)*100:.1f}%"
+        )
+    
+    with col4:
+        degraded_count = len(df[df['change_type'] == 'degraded'])
+        st.metric(
+            "Degraded",
+            degraded_count,
+            delta=f"-{degraded_count/len(df)*100:.1f}%"
+        )
+    
+    st.header("📈 Visualizations")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.plotly_chart(
+            comparison.create_confusion_matrix(df),
+            use_container_width=True
+        )
+    
+    with col2:
+        st.plotly_chart(
+            comparison.create_change_distribution(df),
+            use_container_width=True
+        )
+    
     st.dataframe(df)
