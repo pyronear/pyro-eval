@@ -67,21 +67,33 @@ available_runs = sorted([
 # Select runs
 col1, col2 = st.columns(2)
 default_value = "Select a run"
-available_runs.insert(0, "Select a run")
+available_runs.insert(0, default_value)
 with col1:
-    run_a = st.selectbox("Run A", available_runs, key="run_a")
+    st.markdown("### Reference Run")
+    run_a = st.selectbox("Reference Run", available_runs, key="run_a")
 with col2:
-    run_b = st.selectbox("Run B", available_runs, key="run_b")
+    st.markdown("### Compared to ...")
+    run_b = st.selectbox("Compared to ...", available_runs, key="run_b")
 
 runs = []
 
-# Charger les runs sélectionnés
 if run_a != run_b and run_a != default_value and run_b != default_value:
     try:
         runs.append(RunData(run_a))
         runs.append(RunData(run_b))
     except Exception as e:
-        st.error(f"Error loading runs : {e}")
+        st.error(f"Error loading runs : {e}\nResults should be stored in metrics.json")
+        st.subheader("Expected predictions format in metrics.json")
+        st.code("""
+{
+"predictions": {
+    "tp": ["image1.jpg", "image2.jpg", ...],
+    "fp": ["image3.jpg", "image4.jpg", ...],
+    "fn": ["image5.jpg", "image6.jpg", ...],
+    "tn": ["image7.jpg", "image8.jpg", ...]
+}
+}
+        """, language="json")
 
 # --- Comparaison ---
 comparison = RunComparison(runs=runs)
@@ -116,7 +128,7 @@ if status:
         )
     
     with col2:
-        changed_count = len(df[df["change_type"] != "unchanged"])
+        changed_count = len(df[df["Change Type"] != "unchanged"])
         st.metric(
             "Status changed",
             changed_count,
@@ -124,7 +136,7 @@ if status:
         )
     
     with col3:
-        improved_count = len(df[df["change_type"] == 'improved'])
+        improved_count = len(df[df["Change Type"] == 'improved'])
         st.metric(
             "Improved",
             improved_count,
@@ -132,7 +144,7 @@ if status:
         )
     
     with col4:
-        degraded_count = len(df[df['change_type'] == 'degraded'])
+        degraded_count = len(df[df['Change Type'] == 'degraded'])
         st.metric(
             "Degraded",
             degraded_count,
@@ -155,4 +167,71 @@ if status:
             use_container_width=True
         )
     
-    st.dataframe(df)
+    change_filter = st.sidebar.selectbox(
+                "Change type",
+                options=['All', 'Improvements', 'Degradations', 'Unchanged', 
+                        'FP → TP', 'FN → TP', 'TP → FP', 'TP → FN', 'Other changes']
+            )
+            
+    # Filter by researching an image
+    search_term = st.sidebar.text_input("Recherche d'image", "")
+    
+    # Apply filters
+    filtered_df = df.copy()
+    
+    if change_filter == 'Improvements':
+        filtered_df = filtered_df[filtered_df['Change Type'] == 'improved']
+    elif change_filter == 'Degradations':
+        filtered_df = filtered_df[filtered_df['Change Type'] == 'degraded']
+    elif change_filter == 'Unchanged':
+        filtered_df = filtered_df[filtered_df['Change Type'] == 'unchanged']
+    elif change_filter == 'FP → TP':
+        filtered_df = filtered_df[filtered_df['Change Type'] == 'fp-to-tn']
+    elif change_filter == 'FN → TP':
+        filtered_df = filtered_df[filtered_df['Change Type'] == 'fn-to-tp']
+    elif change_filter == 'TP → FP':
+        filtered_df = filtered_df[filtered_df['Change Type'] == 'tp-to-fn']
+    elif change_filter == 'TP → FN':
+        filtered_df = filtered_df[filtered_df['Change Type'] == 'tn-to-fp']
+    elif change_filter == 'Other changes':
+        filtered_df = filtered_df[~filtered_df['Change Type'].isin(['fp-to-tn', 'fn-to-tp', 'tn-to-fp', 'tp-to-fn', 'unchanged'])]
+    
+    if search_term:
+        filtered_df = filtered_df[filtered_df['Image Name'].str.contains(search_term, case=False)]
+
+    st.header(f"Filtered comparison : ({len(filtered_df)} images)")
+            
+    if not filtered_df.empty:
+        display_df = filtered_df.copy()
+        
+        display_df[run_a] = display_df[run_a].apply(
+            lambda x: comparison.display_status_badge(x)
+        )
+        display_df[run_b] = display_df[run_b].apply(
+            lambda x: comparison.display_status_badge(x)
+        )
+        
+        # Add a colonne to indicate change
+        display_df['Indicator'] = display_df.apply(
+            lambda row: "🔄" if row["Change Type"] != "unchanged" else "➖", axis=1
+        )
+        
+        display_df = display_df[['Image Name', run_a, 'Indicator', run_b, 'Transition']]
+        
+        # HTML table for color badges
+        st.markdown(
+            display_df.to_html(escape=False, index=False),
+            unsafe_allow_html=True
+        )
+        
+        # CSV export
+        csv = filtered_df.to_csv(index=False)
+        st.sidebar.download_button(
+            label="Download CSV",
+            data=csv,
+            file_name="comparison_results.csv",
+            mime="text/csv"
+        )
+
+    else:
+        st.info("Load two runs to start the comparison")

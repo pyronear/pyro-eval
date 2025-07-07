@@ -105,11 +105,11 @@ class RunComparison:
             status_A = models[self.run_ids[0]]
             status_B = models[self.run_ids[1]]
             row = {
-                "image_name": image_id,
+                "Image Name": image_id,
                 self.run_ids[0]: status_A,
                 self.run_ids[1]: status_B,
-                "change_type" : self.get_change_type(status_A, status_B),
-                'transition': f"{status_A} → {status_B}" if status_A != status_B else status_A
+                "Change Type" : self.get_change_type(status_A, status_B),
+                'Transition': f"{status_A} → {status_B}" if status_A != status_B else status_A
             }
             rows.append(row)
 
@@ -126,11 +126,11 @@ class RunComparison:
         change = f"{status1}-to-{status2}"
         
         # Improvement
-        if change in ['fp-to-tp', 'fn-to-tp', 'fp-to-tn', 'fn-to-tn']:
+        if change in ['fn-to-tp', 'fp-to-tn']:
             return 'improved'
         
         # Degradations
-        if change in ['tp-to-fp', 'tp-to-fn', 'tn-to-fp', 'tn-to-fn']:
+        if change in ['tp-to-fn', 'tn-to-fp']:
             return 'degraded'
         
         return change
@@ -182,17 +182,17 @@ class RunComparison:
         if df.empty:
             return go.Figure()
         
-        change_counts = df['change_type'].value_counts()
+        change_counts = df['Change Type'].value_counts()
         
         # Colors for different types of changes
         colors = {
             'unchanged': '#95a5a6',
             'improved': '#27ae60',
             'degraded': '#e74c3c',
-            'fp-to-tp': '#2ecc71',
+            'fp-to-tn': '#2ecc71',
             'fn-to-tp': '#2ecc71',
-            'tp-to-fp': '#e67e22',
-            'tp-to-fn': '#e67e22'
+            'tp-to-fn': '#e67e22',
+            'tn-to-fp': '#e67e22'
         }
         
         bar_colors = [colors.get(change, '#3498db') for change in change_counts.index]
@@ -216,7 +216,7 @@ class RunComparison:
         
         return fig
 
-    def display_status_badge(status: str) -> str:
+    def display_status_badge(self, status: str) -> str:
         """Add color badge for status"""
         return f'<span class="status-badge status-{status}">{status.upper()}</span>'
 
