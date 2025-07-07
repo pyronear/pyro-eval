@@ -49,7 +49,7 @@ class RunData:
         status_by_image = {}
         for status, images in self.model_predictions.items():
             for img in images:
-                status_by_image[img] = status
+                status_by_image[img] = status.upper()
         return status_by_image
 
     def get_status_by_sequence(self) -> Dict[str, str]:
@@ -62,7 +62,7 @@ class RunData:
         status_by_sequence = {}
         for status, sequences in self.sequence_predictions.items():
             for seq in sequences:
-                status_by_sequence[seq] = status
+                status_by_sequence[seq] = status.upper()
         return status_by_sequence
 
 class RunComparison:
@@ -144,7 +144,7 @@ class RunComparison:
             return go.Figure()
         
         # Create confusion matrix
-        statuses = ['tp', 'fp', 'fn', 'tn']
+        statuses = ['TP', 'FP', 'FN', 'TN']
         confusion_matrix = np.zeros((len(statuses), len(statuses)))
         
         for i, status1 in enumerate(statuses):

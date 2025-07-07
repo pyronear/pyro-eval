@@ -229,20 +229,16 @@ if status:
     # # --- Dataframe and filters ---
     st.header("🔍 Prediciton details")
 
-    # Implement filters
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
 
-    # Filter given some specific changes
     with col1:
         change_types = ['All'] + sorted(df['Change Type'].unique().tolist())
         change_filter = st.selectbox("Change Type", options=change_types, key="change_type_filter")
 
-    # Filter on run_a values
     with col2:
         run_a_vals = ['All'] + sorted(df[run_a].unique().tolist())
         run_a_filter = st.selectbox(f"{run_a} Status", options=run_a_vals, key="run_a_filter")
 
-    # Filter on run_b values
     with col3:
         run_b_vals = ['All'] + sorted(df[run_b].unique().tolist())
         run_b_filter = st.selectbox(f"{run_b} Status", options=run_b_vals, key="run_b_filter")
@@ -250,55 +246,76 @@ if status:
     with col4:
         search_term = st.text_input("Search Image", "", key="image_search")
 
-    # Apply filters
-    filtered_df = df.copy()
+    with col5:
+        filter_mode = st.radio("Filter Mode", ["AND", "OR"], key="filter_mode")
+
+    def apply_filters(df, filters, mode="AND"):
+        """
+        Apply filters with specified mode AND/OR
+        """
+        if mode == "AND":
+            # Add filters on top of each others
+            filtered_df = df.copy()
+            for condition in filters:
+                if condition is not None:
+                    filtered_df = filtered_df[condition(filtered_df)]
+            return filtered_df
+        
+        else:  # mode == "OR"
+            valid_filters = [f for f in filters if f is not None]
+            if not valid_filters:
+                return df.copy()
+            
+            # Create an OR condition combined
+            combined_condition = None
+            for condition in valid_filters:
+                if combined_condition is None:
+                    combined_condition = condition(df)
+                else:
+                    combined_condition = combined_condition | condition(df)
+            
+            return df[combined_condition]
+
+
+    # Create filter conditions for each select_box
+    filter_conditions = []
 
     if change_filter != 'All':
-        filtered_df = filtered_df[filtered_df['Change Type'] == change_filter]
+        filter_conditions.append(lambda x: x['Change Type'] == change_filter)
+    else:
+        filter_conditions.append(None)
+
     if run_a_filter != 'All':
-        filtered_df = filtered_df[filtered_df[run_a] == run_a_filter]
+        filter_conditions.append(lambda x: x[run_a] == run_a_filter)
+    else:
+        filter_conditions.append(None)
+
     if run_b_filter != 'All':
-        filtered_df = filtered_df[filtered_df[run_b] == run_b_filter]
+        filter_conditions.append(lambda x: x[run_b] == run_b_filter)
+    else:
+        filter_conditions.append(None)
+
     if search_term:
-        filtered_df = filtered_df[filtered_df['Image Name'].str.contains(search_term, case=False)]
+        filter_conditions.append(lambda x: x['Image Name'].str.contains(search_term, case=False))
+    else:
+        filter_conditions.append(None)
+
+    filtered_df = apply_filters(df, filter_conditions, filter_mode)
 
     # Display
-    # st.data_editor(
-    #     filtered_df,
-    #     use_container_width=True,
-    #     hide_index=True,
-    #     num_rows="dynamic",
-    #     disabled=True  # désactive l’édition si ce n’est pas souhaité
-    # )
+    st.data_editor(
+        filtered_df,
+        use_container_width=True,
+        hide_index=True,
+        num_rows="dynamic",
+        disabled=True  # désactive l’édition si ce n’est pas souhaité
+    )
 
     # Display filter summary
     st.info(f"Showing {len(filtered_df)} of {len(df)} images/sequences")
     
     # Display filtered results
     if not filtered_df.empty:
-        display_df = filtered_df.copy()
-        
-        # Apply status badges
-        display_df[run_a] = display_df[run_a].apply(
-            lambda x: comparison.display_status_badge(x)
-        )
-        display_df[run_b] = display_df[run_b].apply(
-            lambda x: comparison.display_status_badge(x)
-        )
-        
-        # Add indicator column
-        display_df['Indicator'] = display_df.apply(
-            lambda row: "🔄" if row["Change Type"] != "unchanged" else "➖", axis=1
-        )
-        
-        # Reorder columns for display
-        display_df = display_df[['Image Name', run_a, 'Indicator', run_b]]
-        
-        # Display table with HTML for badges
-        st.markdown(
-            display_df.to_html(escape=False, index=False),
-            unsafe_allow_html=True
-        )
         
         # Export options
         st.subheader("📥 Export Options")
@@ -324,7 +341,6 @@ if status:
                 file_name=f"full_comparison_{len(df)}_images.csv",
                 mime="text/csv"
             )
-        
 
         # Additional statistics for filtered results
         if len(filtered_df) != len(df):
