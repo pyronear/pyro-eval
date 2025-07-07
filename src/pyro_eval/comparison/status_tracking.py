@@ -72,7 +72,7 @@ with col1:
     st.markdown("### Reference Run")
     run_a = st.selectbox("Reference Run", available_runs, key="run_a")
 with col2:
-    st.markdown("### Compared to ...")
+    st.markdown("### New Run")
     run_b = st.selectbox("Compared to ...", available_runs, key="run_b")
 
 runs = []
@@ -103,10 +103,17 @@ with col1:
 with col2:
     compare_engine = st.button("Compare engine predictions")
 
+
+# Store in session_state to avoid empty re-runs
+if "compare_mode" not in st.session_state:
+    st.session_state.compare_mode = None
 if compare_model:
-    status = comparison.compare_predictions(source="model")
-elif compare_engine:
-    status = comparison.compare_predictions(source="sequence")
+    st.session_state.compare_mode = "model"
+if compare_engine:
+    st.session_state.compare_mode = "sequence"
+
+if st.session_state.compare_mode:
+    status = comparison.compare_predictions(source=st.session_state.compare_mode)
 else:
     status = None
 
@@ -151,6 +158,208 @@ if status:
             delta=f"-{degraded_count/len(df)*100:.1f}%"
         )
     
+# --- Configuration Comparison (Collapsible) ---
+    st.header("⚙️ Configuration Comparison")
+
+    with st.expander("Show/Hide Configuration Comparison", expanded=False):
+        
+        st.session_state["config_expanded"] = True
+        if len(runs) == 2:
+            run_a_config = runs[0].config if hasattr(runs[0], 'config') else {}
+            run_b_config = runs[1].config if hasattr(runs[1], 'config') else {}
+
+            # Create comparison DataFrame for configs
+            config_comparison = []
+
+            # Get all unique keys from both configs
+            all_keys = set()
+            def extract_keys(d, prefix=""):
+                for k, v in d.items():
+                    if isinstance(v, dict):
+                        extract_keys(v, prefix + k + ".")
+                    else:
+                        all_keys.add(prefix + k)
+            
+            extract_keys(run_a_config)
+            extract_keys(run_b_config)
+            
+            # Function to get nested value
+            def get_nested_value(d, key):
+                keys = key.split('.')
+                value = d
+                try:
+                    for k in keys:
+                        value = value[k]
+                    return value
+                except (KeyError, TypeError):
+                    return "N/A"
+            
+            # Compare configurations
+            for key in sorted(all_keys):
+                value_a = get_nested_value(run_a_config, key)
+                value_b = get_nested_value(run_b_config, key)
+                
+                # Determine if values are different
+                is_different = str(value_a) != str(value_b)
+                
+                config_comparison.append({
+                    'Parameter': key,
+                    run_a: str(value_a),
+                    run_b: str(value_b),
+                })
+            
+            config_df = pd.DataFrame(config_comparison)
+            
+            # Display config comparison with highlighting
+            st.subheader("Configuration Parameters")
+            show_only_different = st.checkbox("Show only different parameters", key="show_different_config")
+            
+            if show_only_different:
+                config_df_filtered = config_df[config_df[run_a] != config_df[run_b]]
+            else:
+                config_df_filtered = config_df
+            
+            if not config_df_filtered.empty:
+                st.dataframe(config_df_filtered, use_container_width=True)
+            else:
+                st.info("No configuration data available")
+        else:
+            st.warning("Need at least 2 runs to compare configurations")
+    
+    # # --- Dataframe and filters ---
+    st.header("🔍 Prediciton details")
+
+    # Implement filters
+    col1, col2, col3, col4 = st.columns(4)
+
+    # Filter given some specific changes
+    with col1:
+        change_types = ['All'] + sorted(df['Change Type'].unique().tolist())
+        change_filter = st.selectbox("Change Type", options=change_types, key="change_type_filter")
+
+    # Filter on run_a values
+    with col2:
+        run_a_vals = ['All'] + sorted(df[run_a].unique().tolist())
+        run_a_filter = st.selectbox(f"{run_a} Status", options=run_a_vals, key="run_a_filter")
+
+    # Filter on run_b values
+    with col3:
+        run_b_vals = ['All'] + sorted(df[run_b].unique().tolist())
+        run_b_filter = st.selectbox(f"{run_b} Status", options=run_b_vals, key="run_b_filter")
+
+    with col4:
+        search_term = st.text_input("Search Image", "", key="image_search")
+
+    # Apply filters
+    filtered_df = df.copy()
+
+    if change_filter != 'All':
+        filtered_df = filtered_df[filtered_df['Change Type'] == change_filter]
+    if run_a_filter != 'All':
+        filtered_df = filtered_df[filtered_df[run_a] == run_a_filter]
+    if run_b_filter != 'All':
+        filtered_df = filtered_df[filtered_df[run_b] == run_b_filter]
+    if search_term:
+        filtered_df = filtered_df[filtered_df['Image Name'].str.contains(search_term, case=False)]
+
+    # Display
+    # st.data_editor(
+    #     filtered_df,
+    #     use_container_width=True,
+    #     hide_index=True,
+    #     num_rows="dynamic",
+    #     disabled=True  # désactive l’édition si ce n’est pas souhaité
+    # )
+
+    # Display filter summary
+    st.info(f"Showing {len(filtered_df)} of {len(df)} images/sequences")
+    
+    # Display filtered results
+    if not filtered_df.empty:
+        display_df = filtered_df.copy()
+        
+        # Apply status badges
+        display_df[run_a] = display_df[run_a].apply(
+            lambda x: comparison.display_status_badge(x)
+        )
+        display_df[run_b] = display_df[run_b].apply(
+            lambda x: comparison.display_status_badge(x)
+        )
+        
+        # Add indicator column
+        display_df['Indicator'] = display_df.apply(
+            lambda row: "🔄" if row["Change Type"] != "unchanged" else "➖", axis=1
+        )
+        
+        # Reorder columns for display
+        display_df = display_df[['Image Name', run_a, 'Indicator', run_b]]
+        
+        # Display table with HTML for badges
+        st.markdown(
+            display_df.to_html(escape=False, index=False),
+            unsafe_allow_html=True
+        )
+        
+        # Export options
+        st.subheader("📥 Export Options")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Export filtered results
+            csv_filtered = filtered_df.to_csv(index=False)
+            st.download_button(
+                label="Download Filtered Results (CSV)",
+                data=csv_filtered,
+                file_name=f"filtered_comparison_{len(filtered_df)}_images.csv",
+                mime="text/csv"
+            )
+        
+        with col2:
+            # Export full results
+            csv_full = df.to_csv(index=False)
+            st.download_button(
+                label="Download Full Results (CSV)",
+                data=csv_full,
+                file_name=f"full_comparison_{len(df)}_images.csv",
+                mime="text/csv"
+            )
+        
+
+        # Additional statistics for filtered results
+        if len(filtered_df) != len(df):
+            st.subheader("📊 Filtered Statistics")
+            
+            filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+            
+            with filter_col1:
+                st.metric("Filtered Images", len(filtered_df))
+            
+            with filter_col2:
+                filtered_changed = len(filtered_df[filtered_df["Change Type"] != "unchanged"])
+                st.metric("Changed (Filtered)", filtered_changed)
+            
+            with filter_col3:
+                filtered_degraded = len(filtered_df[filtered_df["Change Type"] == 'degraded'])
+                st.metric("Degraded (Filtered)", filtered_degraded)
+            
+            with filter_col4:
+                filtered_degraded = len(filtered_df[filtered_df['Change Type'] == 'degraded'])
+                st.metric("Degraded (Filtered)", filtered_degraded)
+    
+    else:
+        st.warning("No images match the current filters. Try adjusting your filter criteria.")
+        
+        # Show current filter state
+        st.subheader("Current Filters:")
+        st.write(f"- Change Type: {change_filter}")
+        st.write(f"- {run_a} Status: {run_a_filter}")
+        st.write(f"- {run_b} Status: {run_b_filter}")
+        if search_term:
+            st.write(f"- Search Term: '{search_term}'")
+
+# ------- Graphs -------
+
     st.header("📈 Visualizations")
     
     col1, col2 = st.columns(2)
@@ -166,72 +375,3 @@ if status:
             comparison.create_change_distribution(df),
             use_container_width=True
         )
-    
-    change_filter = st.sidebar.selectbox(
-                "Change type",
-                options=['All', 'Improvements', 'Degradations', 'Unchanged', 
-                        'FP → TP', 'FN → TP', 'TP → FP', 'TP → FN', 'Other changes']
-            )
-            
-    # Filter by researching an image
-    search_term = st.sidebar.text_input("Recherche d'image", "")
-    
-    # Apply filters
-    filtered_df = df.copy()
-    
-    if change_filter == 'Improvements':
-        filtered_df = filtered_df[filtered_df['Change Type'] == 'improved']
-    elif change_filter == 'Degradations':
-        filtered_df = filtered_df[filtered_df['Change Type'] == 'degraded']
-    elif change_filter == 'Unchanged':
-        filtered_df = filtered_df[filtered_df['Change Type'] == 'unchanged']
-    elif change_filter == 'FP → TP':
-        filtered_df = filtered_df[filtered_df['Change Type'] == 'fp-to-tn']
-    elif change_filter == 'FN → TP':
-        filtered_df = filtered_df[filtered_df['Change Type'] == 'fn-to-tp']
-    elif change_filter == 'TP → FP':
-        filtered_df = filtered_df[filtered_df['Change Type'] == 'tp-to-fn']
-    elif change_filter == 'TP → FN':
-        filtered_df = filtered_df[filtered_df['Change Type'] == 'tn-to-fp']
-    elif change_filter == 'Other changes':
-        filtered_df = filtered_df[~filtered_df['Change Type'].isin(['fp-to-tn', 'fn-to-tp', 'tn-to-fp', 'tp-to-fn', 'unchanged'])]
-    
-    if search_term:
-        filtered_df = filtered_df[filtered_df['Image Name'].str.contains(search_term, case=False)]
-
-    st.header(f"Filtered comparison : ({len(filtered_df)} images)")
-            
-    if not filtered_df.empty:
-        display_df = filtered_df.copy()
-        
-        display_df[run_a] = display_df[run_a].apply(
-            lambda x: comparison.display_status_badge(x)
-        )
-        display_df[run_b] = display_df[run_b].apply(
-            lambda x: comparison.display_status_badge(x)
-        )
-        
-        # Add a colonne to indicate change
-        display_df['Indicator'] = display_df.apply(
-            lambda row: "🔄" if row["Change Type"] != "unchanged" else "➖", axis=1
-        )
-        
-        display_df = display_df[['Image Name', run_a, 'Indicator', run_b, 'Transition']]
-        
-        # HTML table for color badges
-        st.markdown(
-            display_df.to_html(escape=False, index=False),
-            unsafe_allow_html=True
-        )
-        
-        # CSV export
-        csv = filtered_df.to_csv(index=False)
-        st.sidebar.download_button(
-            label="Download CSV",
-            data=csv,
-            file_name="comparison_results.csv",
-            mime="text/csv"
-        )
-
-    else:
-        st.info("Load two runs to start the comparison")

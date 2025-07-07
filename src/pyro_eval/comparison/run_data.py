@@ -117,7 +117,7 @@ class RunComparison:
 
     def get_change_type(self, status1: str, status2: str) -> str:
         """
-        Determine the change between two statuses (improved or degraded)
+        Determine the change between two statuses (degraded or Degraded)
         Semantic works only if we have a reference run
         """
         if status1 == status2:
@@ -187,8 +187,8 @@ class RunComparison:
         # Colors for different types of changes
         colors = {
             'unchanged': '#95a5a6',
-            'improved': '#27ae60',
-            'degraded': '#e74c3c',
+            'degraded': '#27ae60',
+            'Degraded': '#e74c3c',
             'fp-to-tn': '#2ecc71',
             'fn-to-tp': '#2ecc71',
             'tp-to-fn': '#e67e22',
