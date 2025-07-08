@@ -1,7 +1,9 @@
 import streamlit as st
 from pathlib import Path
+from typing import List
 
 import pandas as pd
+from image_manager import ImageManager
 from run_data import RunData, RunComparison, PROJECT_ROOT
 
 st.set_page_config(
@@ -46,6 +48,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+@st.cache_data
+def create_image_manager(
+    runs : List[RunData]
+) -> ImageManager:
+    return ImageManager(runs=runs)
+
 st.markdown("""
     <div class="main-header">
         <h1>Run comparison</h1>
@@ -81,6 +89,7 @@ if run_a != run_b and run_a != default_value and run_b != default_value:
     try:
         runs.append(RunData(run_a))
         runs.append(RunData(run_b))
+        image_manager = create_image_manager(runs)
     except Exception as e:
         st.error(f"Error loading runs : {e}\nResults should be stored in metrics.json")
         st.subheader("Expected predictions format in metrics.json")
@@ -320,7 +329,7 @@ if status:
         # Export options
         st.subheader("📥 Export Options")
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             # Export filtered results
@@ -341,6 +350,11 @@ if status:
                 file_name=f"full_comparison_{len(df)}_images.csv",
                 mime="text/csv"
             )
+
+        with col3:
+            # Export full results
+            if st.button("Export filtered image folder"):
+                st.write("TODO. : call image_manager.save_images()")
 
         # Additional statistics for filtered results
         if len(filtered_df) != len(df):

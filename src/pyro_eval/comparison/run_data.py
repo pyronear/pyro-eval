@@ -123,7 +123,7 @@ class RunComparison:
         if status1 == status2:
             return 'unchanged'
         
-        change = f"{status1}-to-{status2}"
+        change = f"{status1.lower()}-to-{status2.lower()}"
         
         # Improvement
         if change in ['fn-to-tp', 'fp-to-tn']:
