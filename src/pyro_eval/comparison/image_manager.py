@@ -1,3 +1,4 @@
+import os
 from glob import glob
 from pathlib import Path
 from typing import Dict, List
@@ -24,24 +25,39 @@ class ImageManager:
 
     def save_images(
             self,
-            diff_df: pd.DataFrame,
-            out_path
+            df: pd.DataFrame,
+            out_path: str,
+            source: str,
+            query: str,
         ):
         """
-        Saves images in distinct folders:
+        Saves images from a data frame:
+        - Retrieve image and status
+        - Apply detection bbox and concatenate both image into one
+        - Save them in a folder named after the filtering query 
         """
-        for row in diff_df:
+        os.makedirs(Path(out_path) / query, exist_ok=True)
+        for row in df:
             image_name = row["image_name"]
-            status_0 = row[self.run_ids[0]]
-            status_1 = row[self.run_ids[1]]
-            if status_0 != status_1:
-                new_name = f"run-A-{status_0}_run-B-{status_1}_{image_name}"
-    
-    def load_image(
-            self,
-            image_path: str
-        ) -> Image:
-        pass
+            status_A = row[self.run_ids[0]]
+            status_B = row[self.run_ids[1]]
+            new_name = f"run-A-{status_A}_run-B-{status_B}_{image_name}"
+            # Load original images
+            images = [Image.open(self.get_image_path(image_name, source, run)) for run in self.runs]
+            # Apply detection bbox on each
+            bbox_images = [self.apply_bbox(im) for im in images]
+
+            # Concatenate both in a single image
+            final_image = self.concatenate_images(bbox_images)
+            final_image.save(Path(out_path) / query / new_name)
+
+    def get_image_path(
+        image_name: str, 
+        source: str,
+        run: RunData,
+    ) -> Path :
+        root_path = run.model_datapath if source == "model" else run.engine_datapath
+        return Path(root_path) / image_name
 
     def concatenate_images(
             self,
