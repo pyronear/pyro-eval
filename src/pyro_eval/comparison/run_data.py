@@ -20,6 +20,8 @@ class RunData:
         self.model_metrics = self.data.get("model_metrics", {})
         self.config = self.data.get("config", {})
         self.dataset = self.data.get("dataset", {})
+        self.model_datapath = self.dataset.get("model", {}).get("datapath")
+        self.engine_datapath = self.dataset.get("engine", {}).get("datapath")
 
     def get_filepath(self) -> str:
         filepath = PROJECT_ROOT / f"data/evaluation/{self.run_id}/metrics.json"
@@ -29,7 +31,7 @@ class RunData:
             return filepath
 
     def load_data(self) -> Dict:
-        filepath = self.get_filepath
+        filepath = self.get_filepath()
         try:
             with open(filepath, 'r') as fp:
                 data = json.load(fp)
@@ -103,7 +105,7 @@ class RunComparison:
             status_A = models[self.run_ids[0]]
             status_B = models[self.run_ids[1]]
             row = {
-                "Image Name": image_id,
+                "Name": image_id,
                 self.run_ids[0]: status_A,
                 self.run_ids[1]: status_B,
                 "Change Type" : self.get_change_type(status_A, status_B),

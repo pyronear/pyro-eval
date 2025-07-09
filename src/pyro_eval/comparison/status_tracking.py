@@ -305,7 +305,7 @@ if status:
         filter_conditions.append(None)
 
     if search_term:
-        filter_conditions.append(lambda x: x['Image Name'].str.contains(search_term, case=False))
+        filter_conditions.append(lambda x: x['Name'].str.contains(search_term, case=False))
     else:
         filter_conditions.append(None)
 

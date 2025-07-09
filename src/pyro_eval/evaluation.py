@@ -124,6 +124,7 @@ class EvaluationPipeline:
                 "Number of images": len(dataset),
                 "Number of sequences": len(dataset.sequences),
                 "hash" : dataset.hash,
+                "tree_info" : dataset.tree_info()
             }
             for subset, dataset in zip(
                 ["model", "engine"],

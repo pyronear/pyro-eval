@@ -23,8 +23,14 @@ class ImageManager:
             }
             for run in runs
         }
-
-    def save_images(
+        self.tree = {run_id : {} for run_id in self.run_ids}
+        for run in self.runs:
+            self.tree[run.run_id] = {
+                "model" : run.dataset.get("tree_info") or EvaluationDataset(run.model_datapath).tree_info(),
+                "engine" : run.dataset.get("tree_info") or EvaluationDataset(run.engine_datapath).tree_info(),
+            }
+        
+    def create_image_folder(
             self,
             df: pd.DataFrame,
             out_path: str,
@@ -35,25 +41,74 @@ class ImageManager:
         Saves images from a data frame:
         - Retrieve image and status
         - Apply detection bbox and concatenate both image into one
-        - Save them in a folder named after the filtering query 
+        - Save them in a folder named after the filtering query
+        └── outpath
+            ├── model_query
+            │   ├── run-A-TP_run-B-FN_image1.jpg
+            │   ├── run-A-TP_run-B-TP_image2.jpg
+            │   ├── run-A-FN_run-B-TP_image3.jpg
+        Or for sequences : 
+        ── outpath
+            ├── engine_query
+            │   ├── run-A-TP_run-B-FN_sequence1
+            │   │   ├── image1.jpg
+            │   │   ├── image2.jpg
+            │   ├── run-A-TP_run-B-TP_sequence2
+            │   │   ├── image4.jpg
+            │   │   ├── image5.jpg
+            │   │   ├── image6.jpg
         """
         os.makedirs(Path(out_path) / query, exist_ok=True)
         for row in df:
-            image_name = row["image_name"]
+            name = row["Name"] # name of the image or sequence
             status_A = row[self.run_ids[0]]
             status_B = row[self.run_ids[1]]
-            new_name = f"run-A-{status_A}_run-B-{status_B}_{image_name}"
-            # Load original images
-            images = [Image.open(self.get_image_path(image_name, source, run)) for run in self.runs]
-            # Apply detection bbox on each
-            predictions = []
-            bbox_images = [self.apply_bbox(im, predictions=predictions) for im in images]
+            new_name = f"run-A-{status_A}_run-B-{status_B}_{name}"
+            if source == "model":
+                # Load original images
+                image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
+                # Apply detection bbox on each
+                predictions = [] # TODO : get predictions
+                out_path = Path(out_path) / query / new_name
+                # Apply bbox, concatenate and save
+                self.process_image_pair(
+                    image_pair=image_pair,
+                    predictions=predictions,
+                    saving_path=out_path,
+                )
+            elif source == "engine":
+                os.makedirs(Path(out_path) / query / name, exist_ok=True)
+                images_path = {
+                    run_id : self.get_sequence_images(name, run_id)
+                    for run_id in self.run_ids
+                }
+                for image_path in images_path[self.run_ids[0]]:
+                    if image_path in images_path[self.run_ids[1]]:
+                        image_pair = [Image.open(image_path) for _ in self.runs]
+                        predictions = [] # TODO : get predictions
+                        final_image_name = f"run-A-{status_A}_run-B-{status_B}_{os.path.basename(image_path)}"
+                        out_path = Path(out_path) / query / new_name / final_image_name
 
-            # Concatenate both in a single image
-            final_image = self.concatenate_images(bbox_images)
-            final_image.save(Path(out_path) / query / new_name)
+                        # Apply bbox, concatenate and save
+                        self.process_image_pair(
+                            image_pair=image_pair,
+                            predictions=predictions,
+                            saving_path=out_path,
+                        )
+
+    def process_image_pair(
+        self,
+        image_pair: List[Image.Image],
+        predictions: List[str],
+        saving_path: str,
+    ):
+        bbox_images = [self.apply_bbox(im, predictions=predictions) for im in image_pair]
+        # Concatenate both in a single image
+        final_image = self.concatenate_images(bbox_images)
+        final_image.save(saving_path)
 
     def get_image_path(
+        self,
         image_name: str, 
         source: str,
         run: RunData,
@@ -61,14 +116,26 @@ class ImageManager:
         """
         Reconstruct image path from datasets info
         """
-        dataset_info = run.dataset.get(source, {})
-        root_path = dataset_info.get("datapath")
-        tree = dataset_info.get("tree_info")
-        if tree is None:
-            dataset = EvaluationDataset(datapath=root_path)
-            tree = dataset.tree_info()
+        root_path = self.image_root_dirs[run.run_id][source]
+        tree = self.tree[run.run_id][source]
         relative_image_path = [path for seq in tree for path in tree[seq] if image_name in path][0]
         return Path(root_path) / relative_image_path
+
+    def get_sequence_images(
+            self,
+            run : RunData,
+            sequence_name : str,
+        ) -> List[str]:
+        """
+        Retrieve all image paths for a given sequence
+        """
+        engine_path = run.engine_datapath
+        images = [
+            Path(engine_path) / image_rel_path 
+            for image_rel_path in self.tree[run.run_id]["engine"][sequence_name]
+        ]
+
+        return images
 
     def concatenate_images(
             self,
@@ -138,20 +205,3 @@ class ImageManager:
         draw = ImageDraw.Draw(im)
         draw.text((5, 5), label, fill="red")
         return im
-
-    def get_sequence_images(
-            self,
-            run_id : str,
-            sequence_name : str,
-        ) -> List[str]:
-        """
-        Retrieve all image paths for a given sequence
-        """
-        engine_path = self.image_root_dirs[run_id]["engine"]
-        sequence_path = engine_path / sequence_name
-        images = [
-            im 
-            for im in glob(f"{sequence_path}/*")
-            if im.endswith(".jpg")
-        ]
-        return images
