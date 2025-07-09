@@ -59,7 +59,7 @@ class ImageManager:
             │   │   ├── image6.jpg
         """
         os.makedirs(Path(out_path) / query, exist_ok=True)
-        for row in df:
+        for _, row in df.iterrows():
             name = row["Name"] # name of the image or sequence
             status_A = row[self.run_ids[0]]
             status_B = row[self.run_ids[1]]
@@ -69,17 +69,17 @@ class ImageManager:
                 image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
                 # Apply detection bbox on each
                 predictions = [] # TODO : get predictions
-                out_path = Path(out_path) / query / new_name
+                save_path = Path(out_path) / query / new_name
                 # Apply bbox, concatenate and save
                 self.process_image_pair(
                     image_pair=image_pair,
                     predictions=predictions,
-                    saving_path=out_path,
+                    save_path=save_path,
                 )
             elif source == "engine":
                 os.makedirs(Path(out_path) / query / name, exist_ok=True)
                 images_path = {
-                    run_id : self.get_sequence_images(name, run_id)
+                    run_id : self.get_sequence_images(run_id, name)
                     for run_id in self.run_ids
                 }
                 for image_path in images_path[self.run_ids[0]]:
@@ -87,25 +87,25 @@ class ImageManager:
                         image_pair = [Image.open(image_path) for _ in self.runs]
                         predictions = [] # TODO : get predictions
                         final_image_name = f"run-A-{status_A}_run-B-{status_B}_{os.path.basename(image_path)}"
-                        out_path = Path(out_path) / query / new_name / final_image_name
+                        save_path = Path(out_path) / query / new_name / final_image_name
 
                         # Apply bbox, concatenate and save
                         self.process_image_pair(
                             image_pair=image_pair,
                             predictions=predictions,
-                            saving_path=out_path,
+                            save_path=save_path,
                         )
 
     def process_image_pair(
         self,
         image_pair: List[Image.Image],
         predictions: List[str],
-        saving_path: str,
+        save_path: str,
     ):
         bbox_images = [self.apply_bbox(im, predictions=predictions) for im in image_pair]
         # Concatenate both in a single image
         final_image = self.concatenate_images(bbox_images)
-        final_image.save(saving_path)
+        final_image.save(save_path)
 
     def get_image_path(
         self,
@@ -149,15 +149,15 @@ class ImageManager:
         w2, h2 = im2.size
         max_height = max(h1, h2)
         if h1 < max_height:
-            img1 = img1.resize((int(w1 * max_height / h1), max_height))
+            im1 = im1.resize((int(w1 * max_height / h1), max_height))
 
         if h2 < max_height:
-            img2 = img2.resize((int(w2 * max_height / h2), max_height))
+            im2 = im2.resize((int(w2 * max_height / h2), max_height))
 
-        new_image = Image.new('RGB', (img1.width + img2.width, max_height))
+        new_image = Image.new('RGB', (im1.width + im2.width, max_height))
 
-        new_image.paste(img1, (0, 0))
-        new_image.paste(img2, (img1.width, 0))
+        new_image.paste(im1, (0, 0))
+        new_image.paste(im2, (im1.width, 0))
         return new_image
 
     def apply_bbox(
