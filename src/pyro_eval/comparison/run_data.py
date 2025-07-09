@@ -15,14 +15,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]  # src/pyro_eval/comparison/r
 class RunData:
     def __init__(self, run_id):
         self.run_id = run_id
-        self.filepath = self.get_filepath()
         self.data = self.load_data()
         self.engine_metrics = self.data.get("engine_metrics", {})
         self.model_metrics = self.data.get("model_metrics", {})
         self.config = self.data.get("config", {})
         self.dataset = self.data.get("dataset", {})
-        self.engine_datapath = self.dataset.get("engine", {}).get("datapath")
-        self.model_datapath = self.dataset.get("model", {}).get("datapath")
 
     def get_filepath(self) -> str:
         filepath = PROJECT_ROOT / f"data/evaluation/{self.run_id}/metrics.json"
@@ -32,12 +29,13 @@ class RunData:
             return filepath
 
     def load_data(self) -> Dict:
+        filepath = self.get_filepath
         try:
-            with open(self.filepath, 'r') as fp:
+            with open(filepath, 'r') as fp:
                 data = json.load(fp)
             return data
         except:
-            raise ValueError(f"Unable to load data from {self.filepath}")
+            raise ValueError(f"Unable to load data from {filepath}")
 
     def get_status_by_image(self) -> Dict[str, str]:
         """
