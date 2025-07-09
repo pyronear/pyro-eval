@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw
 
-from .run_data import RunData
-from src.pyro_eval.dataset import EvaluationDataset
+from run_data import RunData
+from pyro_eval.dataset import EvaluationDataset
 
 
 class ImageManager:
@@ -25,12 +25,13 @@ class ImageManager:
             }
             for run in runs
         }
-        self.tree = {run_id : {} for run_id in self.run_ids}
+        self.trees = {run_id : {} for run_id in self.run_ids}
+        
         for run in self.runs:
-            self.tree[run.run_id] = {
+            self.trees[run.run_id] = {
                 # Recreate an instance of EvaluationDataset as the tree info is a late addition to metrics.json
-                "model" : run.dataset.get("tree_info") or EvaluationDataset(run.model_datapath).tree_info(),
-                "engine" : run.dataset.get("tree_info") or EvaluationDataset(run.engine_datapath).tree_info(),
+                "model" : run.dataset.get("model", {}).get("tree_info") or EvaluationDataset(run.model_datapath).tree_info(),
+                "engine" : run.dataset.get("engine", {}).get("tree_info") or EvaluationDataset(run.engine_datapath).tree_info(),
             }
         self.logger = logging.getLogger(__name__)
         
@@ -90,11 +91,12 @@ class ImageManager:
             elif source == "engine":
                 os.makedirs(Path(out_path) / query / name, exist_ok=True)
                 images_path = {
-                    run_id : self.get_sequence_images(run_id, name)
-                    for run_id in self.run_ids
+                    run.run_id : self.get_sequence_images(run, name)
+                    for run in self.runs
                 }
                 for image_path in images_path[self.run_ids[0]]:
-                    if image_path in images_path[self.run_ids[1]]:
+                    # Check that we find one image we the same name in the other dataset
+                    if os.path.basename(image_path) in [os.path.basename(path) for path in images_path[self.run_ids[1]]]:
                         try:
                             image_name = os.path.basename(image_path)
                             image_pair = [Image.open(image_path) for _ in self.runs]
@@ -132,7 +134,7 @@ class ImageManager:
         Reconstruct image path from datasets info
         """
         root_path = self.image_dirs[run.run_id][source]
-        tree = self.tree[run.run_id][source]
+        tree = self.trees[run.run_id][source]
         relative_image_path = [path for seq in tree for path in tree[seq] if image_name in path][0]
         return Path(root_path) / relative_image_path
 
@@ -147,7 +149,7 @@ class ImageManager:
         engine_path = run.engine_datapath
         images = [
             Path(engine_path) / image_rel_path 
-            for image_rel_path in self.tree[run.run_id]["engine"][sequence_name]
+            for image_rel_path in self.trees[run.run_id]["engine"][sequence_name]
         ]
 
         return images
