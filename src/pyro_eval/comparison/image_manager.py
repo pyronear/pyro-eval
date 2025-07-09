@@ -64,6 +64,9 @@ class ImageManager:
         dataset_info = run.dataset.get(source, {})
         root_path = dataset_info.get("datapath")
         tree = dataset_info.get("tree_info")
+        if tree is None:
+            dataset = EvaluationDataset(datapath=root_path)
+            tree = dataset.tree_info()
         relative_image_path = [path for seq in tree for path in tree[seq] if image_name in path][0]
         return Path(root_path) / relative_image_path
 
