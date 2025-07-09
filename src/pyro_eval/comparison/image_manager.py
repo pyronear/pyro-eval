@@ -1,13 +1,14 @@
 import os
 from glob import glob
 from pathlib import Path
-from typing import Dict, List
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw
 
 from run_data import RunData
+from src.pyro_eval.dataset import EvaluationDataset
 
 class ImageManager:
     """Class that manages images in the comparison"""
@@ -45,7 +46,8 @@ class ImageManager:
             # Load original images
             images = [Image.open(self.get_image_path(image_name, source, run)) for run in self.runs]
             # Apply detection bbox on each
-            bbox_images = [self.apply_bbox(im) for im in images]
+            predictions = []
+            bbox_images = [self.apply_bbox(im, predictions=predictions) for im in images]
 
             # Concatenate both in a single image
             final_image = self.concatenate_images(bbox_images)
@@ -56,8 +58,14 @@ class ImageManager:
         source: str,
         run: RunData,
     ) -> Path :
-        root_path = run.model_datapath if source == "model" else run.engine_datapath
-        return Path(root_path) / image_name
+        """
+        Reconstruct image path from datasets info
+        """
+        dataset_info = run.dataset.get(source, {})
+        root_path = dataset_info.get("datapath")
+        tree = dataset_info.get("tree_info")
+        relative_image_path = [path for seq in tree for path in tree[seq] if image_name in path][0]
+        return Path(root_path) / relative_image_path
 
     def concatenate_images(
             self,
@@ -67,27 +75,44 @@ class ImageManager:
         """
         Takes two image and concatenate them next to each other
         """
-        pass 
+        w1, h1 = im1.size
+        w2, h2 = im2.size
+        max_height = max(h1, h2)
+        if h1 < max_height:
+            img1 = img1.resize((int(w1 * max_height / h1), max_height))
+
+        if h2 < max_height:
+            img2 = img2.resize((int(w2 * max_height / h2), max_height))
+
+        new_image = Image.new('RGB', (img1.width + img2.width, max_height))
+
+        new_image.paste(img1, (0, 0))
+        new_image.paste(img2, (img1.width, 0))
+        return new_image
 
     def apply_bbox(
             self,
             im : Image,
-            prediction : np.array,
+            predictions : np.array,
+            target_size : Tuple = (1024, 1024) # TODO : retrieve default value from CustomImage
         ) -> Image:
         """
         Add bbox to an image
-        bbox coordinates in xyxyn format are stored in the prediciton array
+        Bbox coordinates in xyxyn format are stored in the prediciton array
+        Predictions on a resized version (1024, 1024), so we need to resize the image before adding them
         """
-        draw = ImageDraw.Draw(im)
         w, h = im.size
+        w_t, h_t = target_size
+        resized_im = im.resize(target_size)
+        draw = ImageDraw.Draw(resized_im)
 
-        for pred in prediction:
+        for pred in predictions:
             x1, y1, x2, y2 = pred[:4]
             conf = pred[4]
 
             # Convert normalized to absolute coords
-            x1_abs, y1_abs = int(x1 * w), int(y1 * h)
-            x2_abs, y2_abs = int(x2 * w), int(y2 * h)
+            x1_abs, y1_abs = int(x1 * w_t), int(y1 * h_t)
+            x2_abs, y2_abs = int(x2 * w_t), int(y2 * h_t)
 
             # Draw rectangle
             draw.rectangle([x1_abs, y1_abs, x2_abs, y2_abs], outline="red", width=2)
@@ -96,6 +121,7 @@ class ImageManager:
             label = f"{conf:.2f}"
             draw.text((x1_abs + 3, y1_abs + 3), label, fill="red")
 
+        im = resized_im.resize((w, h))
         return im
 
     def display_label(
