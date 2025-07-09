@@ -288,9 +288,6 @@ class EvaluationDataset:
 
         return True
 
-    def add_sequence(self, sequence: Sequence):
-        self.sequences.append(sequence)
-
     def dump(self, path=None):
         output_csv = (
             path
@@ -352,6 +349,14 @@ class EvaluationDataset:
         )
         plt.title("Sequence length distribution")
         plt.show()
+
+    def tree_info(self):
+        tree_info = {}
+        for seq in self.sequences:
+            tree_info[seq.id] = [
+                os.path.relpath(image.path, self.datapath) for image in seq.images
+            ]
+        return tree_info
 
     def __len__(self):
         return len(self.dataframe)
