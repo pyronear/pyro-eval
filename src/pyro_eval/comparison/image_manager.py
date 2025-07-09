@@ -1,5 +1,6 @@
+import logging
 import os
-from glob import glob
+import random
 from pathlib import Path
 from typing import List, Tuple
 
@@ -7,8 +8,9 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw
 
-from run_data import RunData
+from .run_data import RunData
 from src.pyro_eval.dataset import EvaluationDataset
+
 
 class ImageManager:
     """Class that manages images in the comparison"""
@@ -16,7 +18,7 @@ class ImageManager:
     def __init__(self, runs: List[RunData]):
         self.runs = runs
         self.run_ids = [run.run_id for run in self.runs]
-        self.image_root_dirs = {
+        self.image_dirs = {
             run.run_id : {
                 "engine" : Path(run.engine_datapath),
                 "model" : Path(run.model_datapath),
@@ -26,9 +28,11 @@ class ImageManager:
         self.tree = {run_id : {} for run_id in self.run_ids}
         for run in self.runs:
             self.tree[run.run_id] = {
+                # Recreate an instance of EvaluationDataset as the tree info is a late addition to metrics.json
                 "model" : run.dataset.get("tree_info") or EvaluationDataset(run.model_datapath).tree_info(),
                 "engine" : run.dataset.get("tree_info") or EvaluationDataset(run.engine_datapath).tree_info(),
             }
+        self.logger = logging.getLogger(__name__)
         
     def create_image_folder(
             self,
@@ -58,6 +62,9 @@ class ImageManager:
             │   │   ├── image5.jpg
             │   │   ├── image6.jpg
         """
+        if df.empty:
+            self.logger.warning(f"Empty dataframe for the following query :  '{query}'")
+            return
         os.makedirs(Path(out_path) / query, exist_ok=True)
         for _, row in df.iterrows():
             name = row["Name"] # name of the image or sequence
@@ -65,17 +72,21 @@ class ImageManager:
             status_B = row[self.run_ids[1]]
             new_name = f"run-A-{status_A}_run-B-{status_B}_{name}"
             if source == "model":
-                # Load original images
-                image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
-                # Apply detection bbox on each
-                predictions = [] # TODO : get predictions
-                save_path = Path(out_path) / query / new_name
-                # Apply bbox, concatenate and save
-                self.process_image_pair(
-                    image_pair=image_pair,
-                    predictions=predictions,
-                    save_path=save_path,
-                )
+                try:
+                    # Load original images
+                    image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
+                    # Apply detection bbox on each
+                    predictions = self.get_predictions(image_name=image_name, source=source)
+                    save_path = Path(out_path) / query / new_name
+                    # Apply bbox, concatenate and save
+                    self.process_image_pair(
+                        image_pair=image_pair,
+                        predictions=predictions,
+                        save_path=save_path,
+                    )
+                except Exception as e:
+                    logging.error(f"Error processing {name} - {e}")
+
             elif source == "engine":
                 os.makedirs(Path(out_path) / query / name, exist_ok=True)
                 images_path = {
@@ -84,17 +95,21 @@ class ImageManager:
                 }
                 for image_path in images_path[self.run_ids[0]]:
                     if image_path in images_path[self.run_ids[1]]:
-                        image_pair = [Image.open(image_path) for _ in self.runs]
-                        predictions = [] # TODO : get predictions
-                        final_image_name = f"run-A-{status_A}_run-B-{status_B}_{os.path.basename(image_path)}"
-                        save_path = Path(out_path) / query / new_name / final_image_name
+                        try:
+                            image_name = os.path.basename(image_path)
+                            image_pair = [Image.open(image_path) for _ in self.runs]
+                            predictions = self.get_predictions(image_name=image_name, source=source)
+                            final_image_name = f"run-A-{status_A}_run-B-{status_B}_{image_name}"
+                            save_path = Path(out_path) / query / new_name / final_image_name
 
-                        # Apply bbox, concatenate and save
-                        self.process_image_pair(
-                            image_pair=image_pair,
-                            predictions=predictions,
-                            save_path=save_path,
-                        )
+                            # Apply bbox, concatenate and save
+                            self.process_image_pair(
+                                image_pair=image_pair,
+                                predictions=predictions,
+                                save_path=save_path,
+                            )
+                        except:
+                            logging.error(f"Error processing {name}")
 
     def process_image_pair(
         self,
@@ -116,7 +131,7 @@ class ImageManager:
         """
         Reconstruct image path from datasets info
         """
-        root_path = self.image_root_dirs[run.run_id][source]
+        root_path = self.image_dirs[run.run_id][source]
         tree = self.tree[run.run_id][source]
         relative_image_path = [path for seq in tree for path in tree[seq] if image_name in path][0]
         return Path(root_path) / relative_image_path
@@ -136,6 +151,27 @@ class ImageManager:
         ]
 
         return images
+
+    def get_predictions(
+            self,
+            image_name: str,
+            source: str,
+    ) -> np.ndarray:
+        """
+        TODO : retrieve actual predictions
+        """
+        
+        image_size = (1024, 1024)
+        num_bboxes = random.randint(0, 4)
+        bboxes = []
+
+        for _ in range(num_bboxes):
+            x1 = random.randint(0, image_size[0] - 1)
+            y1 = random.randint(0, image_size[1] - 1)
+            x2 = random.randint(x1, image_size[0] - 1)
+            y2 = random.randint(y1, image_size[1] - 1)
+            bboxes.append((x1, y1, x2, y2))
+        return  bboxes
 
     def concatenate_images(
             self,
