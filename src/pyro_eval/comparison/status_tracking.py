@@ -3,12 +3,14 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
+
 from image_manager import ImageManager
 from run_data import RunData, RunComparison, PROJECT_ROOT
+from utils import compare_metrics
 
 st.set_page_config(
-    page_title="Comparaison de Modèles de Détection",
-    page_icon="🔍",
+    page_title="Wildfire Detection Model Comparison",
+    page_icon="🌲",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -48,11 +50,22 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_data
+# @st.cache_data
 def create_image_manager(
     runs : List[RunData]
 ) -> ImageManager:
     return ImageManager(runs=runs)
+
+# If we want to use streamlit cache for create_image manager, we need to have hashable input to the function
+# For that we need to provide a dict version of the run objects...
+# @st.cache_data
+# def create_image_manager(runs_data: List[dict]) -> ImageManager:
+#     runs = [RunData(**data) for data in runs_data]
+#     return ImageManager(runs=runs)
+
+# ... and implement un to_dict() method in RunData
+#create_image_manager([run.to_dict() for run in runs])
+
 
 st.markdown("""
     <div class="main-header">
@@ -68,7 +81,7 @@ st.title("Compare model outputs")
 # Get avaialable runs
 eval_dir = PROJECT_ROOT / "data/evaluation"
 available_runs = sorted([
-    d.name for d in Path("data/evaluation").iterdir()
+    d.name for d in eval_dir.iterdir()
     if d.is_dir() and (d / "metrics.json").is_file()
 ])
 
@@ -119,16 +132,18 @@ if "compare_mode" not in st.session_state:
 if compare_model:
     st.session_state.compare_mode = "model"
 if compare_engine:
-    st.session_state.compare_mode = "sequence"
+    st.session_state.compare_mode = "engine"
 
 if st.session_state.compare_mode:
     status = comparison.compare_predictions(source=st.session_state.compare_mode)
 else:
     status = None
 
-# # --- Format DataFrame pour affichage ---
 if status:
-    # df = pd.DataFrame.from_dict(status, orient="index")
+
+    # ==================================
+    # === Global Comparison Display ====
+    # ==================================
     df = comparison.get_status_dataframe(status=status)
     df.index.name = "image"
 
@@ -166,8 +181,11 @@ if status:
             degraded_count,
             delta=f"-{degraded_count/len(df)*100:.1f}%"
         )
-    
-# --- Configuration Comparison (Collapsible) ---
+
+    # ==============================================
+    # === Configuration Comparison (Collapsible) ===
+    # ==============================================
+
     st.header("⚙️ Configuration Comparison")
 
     with st.expander("Show/Hide Configuration Comparison", expanded=False):
@@ -234,8 +252,58 @@ if status:
                 st.info("No configuration data available")
         else:
             st.warning("Need at least 2 runs to compare configurations")
-    
-    # # --- Dataframe and filters ---
+
+
+    # ==============================================
+    # ====== Metrics Comparison (Collapsible) ======
+    # ==============================================
+
+    st.header("📊 Metrics Comparison")
+
+    with st.expander("Show/Hide Metrics Comparison", expanded=False):
+        
+        st.session_state["metrics_expanded"] = True
+        if len(runs) == 2:
+            run_a_engine_metrics = runs[0].engine_metrics.get("sequence_metrics")
+            run_a_engine_metrics.pop("predictions")
+            run_b_engine_metrics = runs[1].engine_metrics.get("sequence_metrics")
+            run_b_engine_metrics.pop("predictions")
+
+            run_a_model_metrics = runs[0].model_metrics
+            run_a_model_metrics.pop("predictions")
+            run_a_model_metrics.pop("roc_curve")
+            run_b_model_metrics = runs[1].model_metrics
+            run_b_model_metrics.pop("predictions")
+            run_b_model_metrics.pop("roc_curve")
+            # Define preferred order for metrics
+            preferred_order = ['f1', 'precision', 'recall', 'tp', 'tn', 'fp', 'fn','avg_detection_delay',]
+            
+            engine_metrics_df = compare_metrics(run_a_engine_metrics, run_b_engine_metrics, preferred_order, [run_a, run_b])
+            # Display metrics comparison with highlighting
+            st.subheader("Engine Metrics")
+            
+            if not engine_metrics_df.empty:
+                st.dataframe(engine_metrics_df, use_container_width=True)
+            else:
+                st.info("No metrics data available")
+            
+            model_metrics_df = compare_metrics(run_a_model_metrics, run_b_model_metrics, preferred_order, [run_a, run_b])
+            # Display metrics comparison with highlighting
+            st.subheader("Model Metrics")
+            
+            if not model_metrics_df.empty:
+                st.dataframe(model_metrics_df, use_container_width=True)
+            else:
+                st.info("No metrics data available")
+            
+        else:
+            st.warning("Need at least 2 runs to compare metrics")
+
+
+    # ===============================================
+    # ============ Dataframe and filters ============
+    # ===============================================
+
     st.header("🔍 Prediciton details")
 
     col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
@@ -363,15 +431,15 @@ if status:
             filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
             
             with filter_col1:
-                st.metric("Filtered Images", len(filtered_df))
+                st.metric("Filtered Entries", len(filtered_df))
             
             with filter_col2:
                 filtered_changed = len(filtered_df[filtered_df["Change Type"] != "unchanged"])
                 st.metric("Changed (Filtered)", filtered_changed)
             
             with filter_col3:
-                filtered_degraded = len(filtered_df[filtered_df["Change Type"] == 'degraded'])
-                st.metric("Degraded (Filtered)", filtered_degraded)
+                filtered_degraded = len(filtered_df[filtered_df["Change Type"] == 'improved'])
+                st.metric("Improved (Filtered)", filtered_degraded)
             
             with filter_col4:
                 filtered_degraded = len(filtered_df[filtered_df['Change Type'] == 'degraded'])
@@ -388,7 +456,9 @@ if status:
         if search_term:
             st.write(f"- Search Term: '{search_term}'")
 
-# ------- Graphs -------
+    # ================================
+    # ============ Graphs ============
+    # ================================
 
     st.header("📈 Visualizations")
     
