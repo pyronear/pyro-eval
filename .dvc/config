@@ -1,0 +1,5 @@
+[core]
+    analytics = false
+    remote = pyronear-remote
+['remote "pyronear-remote"']
+    url = s3://pyro-eval/dvc

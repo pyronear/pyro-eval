@@ -12,15 +12,35 @@ the performance of pyronear algorithms. It is split in two parts:
 
 ## Installation
 
-Make sure you have [Poetry](https://python-poetry.org/docs/) installed, then
-clone this repo and install dependencies:
+### Python dependencies
+
+Make sure you have [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, then clone this repo and install dependencies:
 
 ```bash
 git clone git@github.com:earthtoolsmaker/pyro-eval.git
-poetry install
+uv sync
 ```
 
-This repo the pyro-engine repo as a dependency : (https://github.com/pyronear/pyro-engine), make sure to run poetry install to retrieve changes made on this repo.
+__Note__:
+
+This repo the [pyro-engine](https://github.com/pyronear/pyro-engine) repo as a
+dependency: Make sure to run `uv sync` to retrieve changes made on this
+repo.
+
+### Data dependencies
+
+To get the data dependencies one can use DVC - To fully use this
+repository you would need access to our DVC remote storage which is
+currently reserved for Pyronear members. On request, you will be provided with
+AWS credentials to access our remote storage.
+
+Pull all the data files tracked by DVC using this command:
+
+```sh
+dvc pull
+```
+
+### Scaffolding
 
 One can use the default `./data` folder to store datasets and models to run
 evaluation on:
@@ -64,7 +84,7 @@ $ tree -L 3
 This script runs the evaluation of the models on the provided test dataset.
 
 ```bash
-poetry run python ./scripts/run_evaluation.py \
+uv run python ./scripts/run_evaluation.py \
   --dir-models ./data/models/ \
   --dir-dataset ./data/datasets/wildfire_test/ \
   --dir-temporal-dataset ./data/datasets/wildfire_test_temporal/ \

@@ -3,8 +3,8 @@ import logging
 from pathlib import Path
 from typing import Dict
 
-import pyroengine.engine as engine
 from pandas import Timedelta
+from pyroengine.engine import Engine
 from pyroengine.vision import Classifier
 
 from .dataset import EvaluationDataset
@@ -13,7 +13,12 @@ from .model import Model
 from .model_evaluation import ModelEvaluator
 from .path_manager import get_prediction_path
 from .prediction_manager import PredictionManager
-from .utils import make_dict_json_compatible, generate_run_id, get_class_default_params, get_git_revision
+from .utils import (
+    make_dict_json_compatible,
+    generate_run_id,
+    get_class_default_params,
+    get_remote_commit_hash,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -75,7 +80,7 @@ class EvaluationPipeline:
         if "model_path" not in config:
             raise ValueError("A model_path must be provided in the evaluation config.")
 
-        engine_default_values = get_class_default_params(engine.Engine)
+        engine_default_values = get_class_default_params(Engine)
         model_default_values = get_class_default_params(Classifier)
 
         engine_config = config.get("engine", {})
@@ -133,7 +138,7 @@ class EvaluationPipeline:
         }
 
         self.config["model"]["hash"] = self.model.hash
-        self.config["pyro_engine_commit"] = get_git_revision(engine.__file__)
+        self.config["pyro_engine_commit"] = get_remote_commit_hash("pyroengine")
         timings = {
             "engine" : self.metrics.get("engine_metrics", {}).get("timing"),
             "model" : self.metrics.get("model_metrics", {}).get("timing"),
