@@ -91,9 +91,6 @@ class Sequence:
         image_labels = [image.label for image in self.images]
         return any(image_labels)
 
-    def add_image(self, image_path, sequence_id, timedelta, label):
-        self.images.append(CustomImage(image_path, sequence_id, timedelta, label))
-
     def __len__(self):
         return len(self.images)
 

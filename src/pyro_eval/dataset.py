@@ -45,9 +45,7 @@ class EvaluationDataset:
         # Build dataset from Sequence and CustomImage objects
         self.build_dataset()
         self.hash = self.compute_hash()
-        self.dataset_ID = (
-            dataset_ID if dataset_ID else f"dataset_{datetime.now()}_{self.hash[:10]}"
-        )
+        self.dataset_ID = dataset_ID or f"dataset_{datetime.now()}_{self.hash[:10]}"
 
         self.dataframe = self.get_sequence_label()
 
