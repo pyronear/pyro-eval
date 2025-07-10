@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Dict, List
 
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 
@@ -82,7 +81,7 @@ class RunComparison:
         for run in self.runs:
             if source == "model":
                 run_status = run.get_status_by_image()
-            elif source == "sequence":
+            elif source == "engine":
                 run_status = run.get_status_by_sequence()
             for img, status in run_status.items():
                 comparison[img][run.run_id] = status

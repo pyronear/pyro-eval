@@ -73,20 +73,20 @@ class ImageManager:
             status_B = row[self.run_ids[1]]
             new_name = f"run-A-{status_A}_run-B-{status_B}_{name}"
             if source == "model":
-                try:
-                    # Load original images
-                    image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
-                    # Apply detection bbox on each
-                    predictions = self.get_predictions(image_name=image_name, source=source)
-                    save_path = Path(out_path) / query / new_name
-                    # Apply bbox, concatenate and save
-                    self.process_image_pair(
-                        image_pair=image_pair,
-                        predictions=predictions,
-                        save_path=save_path,
-                    )
-                except Exception as e:
-                    logging.error(f"Error processing {name} - {e}")
+                # try:
+                # Load original images
+                image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
+                # Apply detection bbox on each
+                predictions = self.get_predictions(image_name=image_name, source=source)
+                save_path = Path(out_path) / query / new_name
+                # Apply bbox, concatenate and save
+                self.process_image_pair(
+                    image_pair=image_pair,
+                    predictions=predictions,
+                    save_path=save_path,
+                )
+                # except Exception as e:
+                #     logging.error(f"Error processing {name} - {e}")
 
             elif source == "engine":
                 os.makedirs(Path(out_path) / query / name, exist_ok=True)
