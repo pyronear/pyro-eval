@@ -18,6 +18,7 @@ matplotlib = "3.10.0"
 onnx = "1.17.0"
 onnxruntime = "1.18.1"
 pandas = "2.2.3"
+plotly = "6.2.0"
 python = ">=3.10,<4.0"
 pyroengine = { git = "https://github.com/pyronear/pyro-engine.git", rev = "main"}
 scikit-learn = "1.6.1"
