@@ -304,7 +304,7 @@ if status:
     # ============ Dataframe and filters ============
     # ===============================================
 
-    st.header("🔍 Prediciton details")
+    st.header("🔍 Prediction details")
 
     col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
 
@@ -422,7 +422,12 @@ if status:
         with col3:
             # Export full results
             if st.button("Export filtered image folder"):
-                st.write("TODO. : call image_manager.save_images()")
+                image_manager.create_image_folder(
+                    df=filtered_df,
+                    out_path="/Users/theocayla/Documents/Dev/Pyronear/debug/interface/data/out",
+                    source="engine",
+                    query="query_example"
+                )
 
         # Additional statistics for filtered results
         if len(filtered_df) != len(df):

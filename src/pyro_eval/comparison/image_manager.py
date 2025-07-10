@@ -77,19 +77,22 @@ class ImageManager:
                 # Load original images
                 image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
                 # Apply detection bbox on each
-                predictions = self.get_predictions(image_name=image_name, source=source)
+                predictions_pair = [
+                    self.get_predictions(run, image_name=image_name, source=source)
+                    for run in self.runs
+                ]
                 save_path = Path(out_path) / query / new_name
                 # Apply bbox, concatenate and save
                 self.process_image_pair(
                     image_pair=image_pair,
-                    predictions=predictions,
+                    predictions_pair=predictions_pair,
                     save_path=save_path,
                 )
                 # except Exception as e:
                 #     logging.error(f"Error processing {name} - {e}")
 
             elif source == "engine":
-                os.makedirs(Path(out_path) / query / name, exist_ok=True)
+                os.makedirs(Path(out_path) / query / new_name, exist_ok=True)
                 images_path = {
                     run.run_id : self.get_sequence_images(run, name)
                     for run in self.runs
@@ -100,28 +103,38 @@ class ImageManager:
                         try:
                             image_name = os.path.basename(image_path)
                             image_pair = [Image.open(image_path) for _ in self.runs]
-                            predictions = self.get_predictions(image_name=image_name, source=source)
-                            final_image_name = f"run-A-{status_A}_run-B-{status_B}_{image_name}"
-                            save_path = Path(out_path) / query / new_name / final_image_name
-
-                            # Apply bbox, concatenate and save
-                            self.process_image_pair(
-                                image_pair=image_pair,
-                                predictions=predictions,
-                                save_path=save_path,
-                            )
                         except:
-                            logging.error(f"Error processing {name}")
+                            logging.error(f"Engine comparison : Error loading image: {image_name}")
+                            continue
+                        try:
+                            predictions_pair = [
+                                self.get_predictions(run, image_name=image_name, source=source)
+                                for run in self.runs
+                            ]
+                        except:
+                            logging.error(f"Engine comparison : Error loading predictions: {image_name}")
+                            continue
+                        final_image_name = f"run-A-{status_A}_run-B-{status_B}_{image_name}"
+                        save_path = Path(out_path) / query / new_name / final_image_name
+
+                        # Apply bbox, concatenate and save
+                        self.process_image_pair(
+                            image_pair=image_pair,
+                            predictions_pair=predictions_pair,
+                            save_path=save_path,
+                        )
+                        # except:
+                        #     logging.error(f"Error processing {name}")
 
     def process_image_pair(
         self,
         image_pair: List[Image.Image],
-        predictions: List[str],
+        predictions_pair: List[str],
         save_path: str,
     ):
-        bbox_images = [self.apply_bbox(im, predictions=predictions) for im in image_pair]
+        bbox_images = [self.apply_bbox(im, pred) for im, pred in zip(image_pair, predictions_pair)]
         # Concatenate both in a single image
-        final_image = self.concatenate_images(bbox_images)
+        final_image = self.concatenate_images(bbox_images[0], bbox_images[1])
         final_image.save(save_path)
 
     def get_image_path(
@@ -147,15 +160,20 @@ class ImageManager:
         Retrieve all image paths for a given sequence
         """
         engine_path = run.engine_datapath
-        images = [
-            Path(engine_path) / image_rel_path 
-            for image_rel_path in self.trees[run.run_id]["engine"][sequence_name]
-        ]
+        try:
+            images = [
+                Path(engine_path) / image_rel_path 
+                for image_rel_path in self.trees[run.run_id]["engine"][sequence_name]
+            ]
+        except:
+            print("not found")
+            images = []
 
         return images
 
     def get_predictions(
             self,
+            run: RunData,
             image_name: str,
             source: str,
     ) -> np.ndarray:
@@ -168,11 +186,12 @@ class ImageManager:
         bboxes = []
 
         for _ in range(num_bboxes):
-            x1 = random.randint(0, image_size[0] - 1)
-            y1 = random.randint(0, image_size[1] - 1)
-            x2 = random.randint(x1, image_size[0] - 1)
-            y2 = random.randint(y1, image_size[1] - 1)
-            bboxes.append((x1, y1, x2, y2))
+            conf = random.uniform(0, 1)
+            x1 = random.uniform(0, 1)
+            y1 = random.uniform(0, 1)
+            x2 = random.uniform(x1, 1)
+            y2 = random.uniform(y1, 1)
+            bboxes.append([x1, y1, x2, y2, conf])
         return  bboxes
 
     def concatenate_images(
@@ -202,35 +221,38 @@ class ImageManager:
             self,
             im : Image,
             predictions : np.array,
-            target_size : Tuple = (1024, 1024) # TODO : retrieve default value from CustomImage
+            model_input_size : Tuple = (1024, 1024) # TODO : retrieve default value from CustomImage
         ) -> Image:
         """
         Add bbox to an image
         Bbox coordinates in xyxyn format are stored in the prediciton array
         Predictions on a resized version (1024, 1024), so we need to resize the image before adding them
         """
-        w, h = im.size
-        w_t, h_t = target_size
-        resized_im = im.resize(target_size)
-        draw = ImageDraw.Draw(resized_im)
+        w_orig, h_orig = im.size
+        w_model, h_model = (model_input_size)
 
+        # Compute scale to get the right coodrinate
+        scale = min(w_orig / w_model, h_orig / h_model)
+
+        im_drawn = im.copy()
+        draw = ImageDraw.Draw(im_drawn)
         for pred in predictions:
-            x1, y1, x2, y2 = pred[:4]
-            conf = pred[4]
+            x1n, y1n, x2n, y2n, conf = pred[:5]
 
-            # Convert normalized to absolute coords
-            x1_abs, y1_abs = int(x1 * w_t), int(y1 * h_t)
-            x2_abs, y2_abs = int(x2 * w_t), int(y2 * h_t)
+            # From xyxyn coordinates to coordinates in the 1024x1024 image
+            x1, y1 = x1n * w_model, y1n * h_model
+            x2, y2 = x2n * w_model, y2n * h_model
 
-            # Draw rectangle
-            draw.rectangle([x1_abs, y1_abs, x2_abs, y2_abs], outline="red", width=2)
+            # The scale to coordinates of the original image
+            x1 = int(x1 * scale)
+            y1 = int(y1 * scale)
+            x2 = int(x2 * scale)
+            y2 = int(y2 * scale)
 
-            # Add label
-            label = f"{conf:.2f}"
-            draw.text((x1_abs + 3, y1_abs + 3), label, fill="red")
+            draw.rectangle([x1, y1, x2, y2], outline="red", width=2)
+            draw.text((x1 + 3, y1 + 3), f"{conf:.2f}", fill="red")
 
-        im = resized_im.resize((w, h))
-        return im
+        return im_drawn
 
     def display_label(
             self,
