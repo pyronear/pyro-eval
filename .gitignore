@@ -7,3 +7,4 @@ data/models/*.onnx
 data/roc/**/
 credentials/*.json
 __pycache__
+.DS_Store
