@@ -308,7 +308,7 @@ def _parse_pyproject_toml(package_name):
         logging.error(f"Unable to parse pyproject.toml to retrieve {package_name} information.")
 
     poetry_dependencies = data.get('tool', {}).get('poetry', {}).get('dependencies', None)
-    uv_dependencies = data.get('tool', {}).get('uv', {}).get('source', {})
+    uv_dependencies = data.get('tool', {}).get('uv', {}).get('sources', {})
     dependencies = poetry_dependencies or uv_dependencies
     if package_name not in dependencies:
         logging.error(f"{package_name} not found in pyproject.toml dependencies.")
@@ -317,8 +317,9 @@ def _parse_pyproject_toml(package_name):
     if "git" not in package_info:
         logging.error(f"Missing git url or revision for {package_name} pyproject.toml dependencies.")
         return None
-    git_url = package_info['git']
-    rev = package_info.get('rev', 'main')
+
+    git_url = package_info.get('git')
+    rev = package_info.get('rev', None) or package_info.get('branch', 'main')
 
     return {
         "git_url" : git_url,
@@ -332,6 +333,8 @@ def get_remote_commit_hash(package_name):
     package_info = _parse_pyproject_toml(package_name)
     git_url = package_info["git_url"]
     rev = package_info["rev"]
+    if git_url is None:
+        return "Unknown"
     try:
         result = subprocess.run(
             ['git', 'ls-remote', git_url, f'refs/heads/{rev}'],
