@@ -7,6 +7,7 @@ requires-python = ">=3.9,<4.0"
 readme = "README.md"
 dependencies = [
     "datasets",
+    "reolink_api_client",
     "matplotlib==3.9.0",
     "onnx==1.17.0",
     "onnxruntime==1.18.1",
@@ -38,3 +39,4 @@ build-backend = "hatchling.build"
 [tool.uv.sources]
 pyroengine = { git = "https://github.com/pyronear/pyro-engine.git", branch = "main" }
 pyroclient = { git = "https://github.com/pyronear/pyro-api.git", subdirectory = "client", rev = "main" }
+reolink_api_client = { git = "https://github.com/pyronear/pyro-engine.git", branch = "develop", subdirectory = "reolink_api/client" }
