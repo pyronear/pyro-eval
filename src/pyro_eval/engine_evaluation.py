@@ -28,7 +28,6 @@ class EngineEvaluator:
         model: Model,
         prediction_manager: PredictionManager,
         config: dict = {},
-        save: bool = False,
         run_id: str = None,
         device: str = None,
     ):
@@ -38,7 +37,6 @@ class EngineEvaluator:
         self.prediction_manager = prediction_manager
         self.config = config["engine"]
         self.model_config = config["model"]
-        self.save = save  # If save is True we regularly dump results and the config used
         self.run_id = run_id if run_id else generate_run_id()
         self.results_data = [
             "sequence_id",
@@ -67,11 +65,6 @@ class EngineEvaluator:
             "image_metrics": self.compute_image_level_metrics(),
             "sequence_metrics": self.compute_sequence_level_metrics(),
         }
-
-        # Save metrics in a json file
-        if self.save:
-            with open(os.path.join(self.result_dir, "engine_metrics.json"), "w") as fip:
-                json.dump(make_dict_json_compatible(self.metrics), fip)
 
         # Add engine processed predictions in the final results
         engine_predictions = {
@@ -190,11 +183,6 @@ class EngineEvaluator:
 
         # Final saving of the predictions
         self.prediction_manager.save_predictions()
-
-        if self.save:
-            pred_csv = get_prediction_csv(self.run_id)
-            logging.info(f"Saving predictions in {pred_csv}")
-            self.predictions_df.to_csv(pred_csv, index=False)
 
     def compute_image_level_metrics(self):
         """
