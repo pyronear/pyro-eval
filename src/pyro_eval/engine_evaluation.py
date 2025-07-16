@@ -56,9 +56,6 @@ class EngineEvaluator:
         self.engine = self.instanciate_engine()
         self.device = device
 
-        # Retrieve images from the dataset
-        self.images = self.dataset.get_all_images()
-
     @timing("Engine evaluation")
     def evaluate(self):
         # Run Engine predictions on each sequence of the dataset
@@ -76,6 +73,14 @@ class EngineEvaluator:
             with open(os.path.join(self.result_dir, "engine_metrics.json"), "w") as fip:
                 json.dump(make_dict_json_compatible(self.metrics), fip)
 
+        # Add engine processed predictions in the final results
+        engine_predictions = {
+            image.name : image.engine_prediction
+            for image in self.dataset.get_all_images()
+        }
+
+        self.metrics.update(engine_predictions)
+        
         return self.metrics
 
     def instanciate_engine(self):
@@ -122,11 +127,18 @@ class EngineEvaluator:
                 # Use the previously computed prediction stored in the prediciton json file
                 confidence = self.engine.predict(frame=None, fake_pred=image.preds_onnx_format)
             else:
-                pil_image = image.load()
+                # Load the image and predict with the Engine
+                pil_image = image.load() # No resize needed as it's done in engine.predict()
                 confidence = self.engine.predict(pil_image)
-                # We store the prediction to be able to load it later
-                # No confidence thresholding should be applied to saved predictions
+
+                # Also predict with prediction_manager to save the predictions
                 self.prediction_manager.predict(images=[image])
+
+            image.engine_prediction = self.prediction_manager.engine_post_process(
+                preds=image.prediction,
+                max_bbox_size=self.config["max_bbox_size"],
+                conf_thresh=self.config["conf_thresh"]
+            )
 
             sequence_results.loc[len(sequence_results)] = [
                 sequence.id,  # sequence_id
