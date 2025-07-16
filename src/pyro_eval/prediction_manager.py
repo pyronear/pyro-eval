@@ -1,7 +1,9 @@
 import json
 import logging
 from typing import List, Dict
+
 import numpy as np
+from pyroengine.utils import nms
 
 from.data_structures import CustomImage
 from .model import Model
@@ -61,3 +63,24 @@ class PredictionManager:
                 self.predictions[image.name] = image.prediction
             else:
                 image.prediction = self.predictions[image.name]
+
+    def engine_post_process(
+            self,
+            preds: np.ndarray,
+            max_bbox_size: float,
+            conf_thresh: float,
+        ) -> np.ndarray:
+        """
+        This method post processes prediction with engine filtering:
+        Remove bboxes with low confidence, remove larger bboxes, apply nms
+        """
+        # Drop low-confidence predictions
+        preds = preds[preds[:, 4] > conf_thresh]
+        # Apply NMS
+        pred = nms(pred)
+
+        # Filter large bboxes
+        preds = preds[(preds[:, 2] - preds[:, 0]) < max_bbox_size, :]
+
+        preds = np.reshape(preds, (-1, 5))
+        return preds
