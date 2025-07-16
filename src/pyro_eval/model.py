@@ -16,16 +16,15 @@ class Model:
     def __init__(
             self,
             model_path: str,
-            inference_params : Dict,
+            config : Dict,
             device: str = None,
         ):
 
         self.model_path = model_path
+        self.config = self.set_config(config)
         self.model = self.load_model()
-        self.device = self.get_device(device)
-        self.model.to(self.device)
+        self.set_device(device)
         self.format = None
-        self.inference_params = self.set_inference_params(inference_params)
         self.hash = self.model_hash()
 
     def load_model(self):
@@ -64,7 +63,7 @@ class Model:
             model = Classifier(
                 model_path=self.model_path,
                 format="onnx",
-                conf=self.inference_params["conf"],
+                conf=self.config["conf"],
                 max_bbox_size=1
             )
         except Exception as e:
@@ -106,34 +105,37 @@ class Model:
         # All checks are correct, return the model
         return YOLO(self.model_path)
 
-    def get_device(self, device):
+    def set_device(self, device):
         """
         Returns proper devide depending on configuration
         """
         if device is not None:
-            return torch.device(device)
+            self.device = torch.device(device)
         elif torch.backends.mps.is_available():
-            return torch.device("mps")
+            self.device = torch.device("mps")
         elif torch.cuda.is_available():
-            return torch.device("cuda")
+            self.device = torch.device("cuda")
         else:
-            return torch.device("cpu")
+            self.device = torch.device("cpu")
+        
+        if self.format != "onnx":
+            self.model.to(self.device)
 
-    def set_inference_params(self, inference_params):
+    def set_config(self, config):
         """
         Retrieve Classifier default parameters
         """
         default_params = get_class_default_params(Classifier)
-        inference_params.setdefault("conf", default_params["conf"])
-        inference_params.setdefault("iou", default_params["iou"])
-        inference_params.setdefault("imgsz", default_params["imgsz"])
-        return inference_params
+        config.setdefault("conf", default_params["conf"])
+        config.setdefault("iou", default_params["iou"])
+        config.setdefault("imgsz", default_params["imgsz"])
+        return config
 
     def inference(self, image: CustomImage):
         """
         Reads an image and run the model on it.
         """
-        pil_image = image.load()
+        pil_image = image.load(resize=True)
 
         if self.format == "onnx":
             try:
@@ -146,9 +148,9 @@ class Model:
             try:
                 results = self.model.predict(
                     source=pil_image,
-                    conf=self.inference_params["conf"],
-                    iou=self.inference_params["iou"],
-                    imgsz=self.inference_params["imgsz"],
+                    conf=self.config["conf"],
+                    iou=self.config["iou"],
+                    imgsz=self.config["imgsz"],
                     device=self.device,
                 )[0]
                 # Format predictions to onnx format : [[boxes.xyxyn, conf]]
