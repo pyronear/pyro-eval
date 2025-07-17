@@ -71,7 +71,7 @@ class EngineEvaluator:
             for image in self.dataset.get_all_images()
         }
 
-        self.metrics.update(engine_predictions)
+        self.metrics["sequence_metrics"].update({"engine_boxes" : engine_predictions})
         
         return self.metrics
 

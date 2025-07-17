@@ -78,7 +78,7 @@ class ImageManager:
                 image_pair = [Image.open(self.get_image_path(name, source, run)) for run in self.runs]
                 # Apply detection bbox on each
                 predictions_pair = [
-                    self.get_predictions(run, image_name=image_name, source=source)
+                    run.engine_metrics.get("model_boxes", {}).get(image_name, [])
                     for run in self.runs
                 ]
                 save_path = Path(out_path) / query / new_name
@@ -108,7 +108,7 @@ class ImageManager:
                             continue
                         try:
                             predictions_pair = [
-                                self.get_predictions(run, image_name=image_name, source=source)
+                                run.engine_metrics.get("sequence_metrics", {}).get("engine_boxes", {}).get(image_name, [])
                                 for run in self.runs
                             ]
                         except:
@@ -170,29 +170,6 @@ class ImageManager:
             images = []
 
         return images
-
-    def get_predictions(
-            self,
-            run: RunData,
-            image_name: str,
-            source: str,
-    ) -> np.ndarray:
-        """
-        TODO : retrieve actual predictions
-        """
-        
-        image_size = (1024, 1024)
-        num_bboxes = random.randint(0, 4)
-        bboxes = []
-
-        for _ in range(num_bboxes):
-            conf = random.uniform(0, 1)
-            x1 = random.uniform(0, 1)
-            y1 = random.uniform(0, 1)
-            x2 = random.uniform(x1, 1)
-            y2 = random.uniform(y1, 1)
-            bboxes.append([x1, y1, x2, y2, conf])
-        return  bboxes
 
     def concatenate_images(
             self,
