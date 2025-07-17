@@ -12,7 +12,6 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_
 from .data_structures import Sequence
 from .dataset import EvaluationDataset
 from .model import Model
-from .path_manager import get_prediction_csv
 from .prediction_manager import PredictionManager
 from .utils import compute_metrics, export_model, generate_run_id, make_dict_json_compatible, timing
 
@@ -127,11 +126,11 @@ class EngineEvaluator:
                 # Also predict with prediction_manager to save the predictions
                 self.prediction_manager.predict(images=[image])
 
-            image.engine_prediction = self.prediction_manager.engine_post_process(
-                preds=image.prediction,
-                max_bbox_size=self.config["max_bbox_size"],
-                conf_thresh=self.config["conf_thresh"]
-            )
+            if confidence > self.config["conf_thresh"]:
+                # If the engine raised an alert, we retrieve model predictions a apply post-processing
+                image.engine_prediction = self.prediction_manager.engine_post_process(preds=image.preds_onnx_format)
+            else:
+                image.engine_prediction = []
 
             sequence_results.loc[len(sequence_results)] = [
                 sequence.id,  # sequence_id
@@ -174,6 +173,7 @@ class EngineEvaluator:
 
         finally:
             if self.needs_deletion:
+                # Remove exported onnx model if model_path was originally given as .pt
                 try:
                     os.remove(self.run_model_path)
                 except:

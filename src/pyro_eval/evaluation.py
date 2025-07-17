@@ -49,6 +49,7 @@ class EvaluationPipeline:
         self.prediction_manager = PredictionManager(
             model=self.model,
             prediction_file=get_prediction_path(self.model.hash),
+            config=self.config,
             use_existing_predictions=use_existing_predictions
         )
 
