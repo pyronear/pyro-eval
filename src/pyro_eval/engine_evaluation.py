@@ -72,7 +72,7 @@ class EngineEvaluator:
         }
 
         self.metrics["sequence_metrics"].update({"engine_boxes" : engine_predictions})
-        
+
         return self.metrics
 
     def instanciate_engine(self):

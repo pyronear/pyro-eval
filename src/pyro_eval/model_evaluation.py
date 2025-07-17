@@ -34,6 +34,7 @@ class ModelEvaluator:
             "fp": [],
             "fn": [],
         }
+        self.boxes = {}
 
         self.prediction_file = get_prediction_path(self.config["model_path"])
 
@@ -77,6 +78,8 @@ class ModelEvaluator:
             # Predictions - last element of the array is the confidence
             pred_boxes = np.array([pred[:-1] for pred in image.prediction])
             pred_scores = np.array([pred[-1] for pred in image.prediction])  # confidences
+            # Store bboxes
+            self.boxes[image.name] = image.prediction
 
             # For ROC: take the highest confidence, or 0 if no prediction
             if len(pred_scores) > 0:
@@ -120,6 +123,7 @@ class ModelEvaluator:
             "tn": len(self.predictions["tn"]),
             "predictions": self.predictions,
             "roc_curve" : self.roc_data,
+            "boxes" : self.boxes,
         }
 
     def save_roc_curve(self) -> None:
