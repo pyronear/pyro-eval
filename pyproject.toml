@@ -36,6 +36,6 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-pyroengine = { git = "https://github.com/pyronear/pyro-engine.git", branch = "15bb1cd37bdaeb7cdfb37cee352217307028afa7" }
+pyroengine = { git = "https://github.com/pyronear/pyro-engine.git", rev = "15bb1cd37bdaeb7cdfb37cee352217307028afa7" }
 pyroclient = { git = "https://github.com/pyronear/pyro-api.git", subdirectory = "client", rev = "main" }
 reolink_api_client = { git = "https://github.com/pyronear/pyro-engine.git", branch = "develop", subdirectory = "reolink_api/client" }
