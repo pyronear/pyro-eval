@@ -65,6 +65,12 @@ def make_cli_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument(
+        "--min-bbox-size",
+        help="bbox size below which detections are filtered out.",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
         "--iou",
         help="IoU threshold to compute matches between detected bboxes.",
         type=float,
@@ -124,6 +130,8 @@ def get_config(args: dict) -> bool:
         config["engine"]["conf_thresh"] = args.get("nb_consecutive_frames")
     if args.get("max_bbox_size"):
         config["engine"]["max_bbox_size"] = args.get("max_bbox_size")
+    if args.get("min_bbox_size"):
+        config["engine"]["min_bbox_size"] = args.get("min_bbox_size")
     if args.get("iou"):
         config["model"]["iou"] = args.get("iou")
     if args.get("model_conf"):

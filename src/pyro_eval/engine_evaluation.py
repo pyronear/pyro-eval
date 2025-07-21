@@ -99,6 +99,7 @@ class EngineEvaluator:
             nb_consecutive_frames=self.config["nb_consecutive_frames"],
             conf_thresh=self.config["conf_thresh"],
             max_bbox_size=self.config["max_bbox_size"],
+            min_bbox_size=self.config["min_bbox_size"],
             model_path=self.run_model_path,
             model_conf_thresh=self.model_config["conf"]
         )

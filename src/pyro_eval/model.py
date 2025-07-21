@@ -64,7 +64,8 @@ class Model:
                 model_path=self.model_path,
                 format="onnx",
                 conf=self.config["conf"],
-                max_bbox_size=1
+                max_bbox_size=1,
+                min_bbox_size=0,
             )
         except Exception as e:
             raise RuntimeError(

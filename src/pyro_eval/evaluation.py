@@ -87,6 +87,7 @@ class EvaluationPipeline:
         engine_config.setdefault("model_path", config.get("model_path"))
         engine_config.setdefault("nb_consecutive_frames", engine_default_values["nb_consecutive_frames"])
         engine_config.setdefault("conf_thresh", engine_default_values["conf_thresh"])
+        engine_config.setdefault("min_bbox_size", model_default_values["min_bbox_size"])
         engine_config.setdefault("max_bbox_size", model_default_values["max_bbox_size"])
 
         model_config = config.get("model", {})
