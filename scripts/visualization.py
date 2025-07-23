@@ -149,7 +149,6 @@ class App:
         st.pyplot(plt.gcf())
 
     def run(_self):
-
         st.title("Metrics")
         # Filters
         st.header("Filters")

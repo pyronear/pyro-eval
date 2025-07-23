@@ -34,7 +34,6 @@ class EvaluationPipeline:
         device: str | None = None,
         use_existing_predictions: bool = True,
     ):
-
         self.model_dataset = dataset.get("model")
         self.engine_dataset = dataset.get("engine")
         self.config = self.get_config(config)
@@ -49,7 +48,7 @@ class EvaluationPipeline:
         self.prediction_manager = PredictionManager(
             model=self.model,
             prediction_file=get_prediction_path(self.model.hash),
-            use_existing_predictions=use_existing_predictions
+            use_existing_predictions=use_existing_predictions,
         )
 
         # Evaluate the model performance on single images
@@ -85,7 +84,9 @@ class EvaluationPipeline:
 
         engine_config = config.get("engine", {})
         engine_config.setdefault("model_path", config.get("model_path"))
-        engine_config.setdefault("nb_consecutive_frames", engine_default_values["nb_consecutive_frames"])
+        engine_config.setdefault(
+            "nb_consecutive_frames", engine_default_values["nb_consecutive_frames"]
+        )
         engine_config.setdefault("conf_thresh", engine_default_values["conf_thresh"])
         engine_config.setdefault("max_bbox_size", model_default_values["max_bbox_size"])
 
@@ -122,31 +123,32 @@ class EvaluationPipeline:
         logging.info(f"Saving metrics in {filepath_result}")
 
         dataset_info = {
-            subset : {
+            subset: {
                 "ID": dataset.dataset_ID,
                 "datapath": str(dataset.datapath),
                 "Number of images": len(dataset),
                 "Number of sequences": len(dataset.sequences),
-                "hash" : dataset.hash,
+                "hash": dataset.hash,
             }
             for subset, dataset in zip(
-                ["model", "engine"],
-                [self.model_dataset, self.engine_dataset]
-                )
+                ["model", "engine"], [self.model_dataset, self.engine_dataset]
+            )
         }
 
         self.config["model"]["hash"] = self.model.hash
         self.config["pyro_engine_commit"] = get_remote_commit_hash("pyroengine")
         timings = {
-            "engine" : self.metrics.get("engine_metrics", {}).get("timing"),
-            "model" : self.metrics.get("model_metrics", {}).get("timing"),
+            "engine": self.metrics.get("engine_metrics", {}).get("timing"),
+            "model": self.metrics.get("model_metrics", {}).get("timing"),
         }
-        self.metrics.update({
-            "config": self.config,
-            "run_id": self.run_id,
-            "dataset": dataset_info,
-            "timing" : timings,
-        })
+        self.metrics.update(
+            {
+                "config": self.config,
+                "run_id": self.run_id,
+                "dataset": dataset_info,
+                "timing": timings,
+            }
+        )
 
         metrics_dump = make_dict_json_compatible(self.metrics)
 

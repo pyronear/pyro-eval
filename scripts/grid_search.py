@@ -8,28 +8,33 @@ from pandas.plotting import parallel_coordinates
 from pyro_eval.dataset import EvaluationDataset
 from pyro_eval.evaluation import EvaluationPipeline
 
+
 def run_grid_search(out_file, loaded_df=None):
     # Usage example
 
     # Instanciate Dataset
-    model_datapath = "data/datasets/1.3.5/wildfire_test_1.3.5" # Folders with two sub-folders : images and labels
-    engine_datapath = "data/datasets/1.3.5/wildfire_temporal_test_1.3.5" # Folders with two sub-folders : images and labels
+    model_datapath = "data/datasets/1.3.5/wildfire_test_1.3.5"  # Folders with two sub-folders : images and labels
+    engine_datapath = "data/datasets/1.3.5/wildfire_temporal_test_1.3.5"  # Folders with two sub-folders : images and labels
 
     datasets = {
-        "model" : EvaluationDataset(datapath=model_datapath, dataset_ID="wildfire_test_v1.3.5"),
-        "engine" : EvaluationDataset(datapath=engine_datapath, dataset_ID="temporal_dataset_v1.3.5")
+        "model": EvaluationDataset(
+            datapath=model_datapath, dataset_ID="wildfire_test_v1.3.5"
+        ),
+        "engine": EvaluationDataset(
+            datapath=engine_datapath, dataset_ID="temporal_dataset_v1.3.5"
+        ),
     }
 
     configs = [
         {
-            "model_path" : model_path,
-            "engine" : {
-                "nb_consecutive_frames" : nb_consecutive_frames,
-                "conf_thresh" : conf_thresh,
-                "max_bbox_size" : max_bbox_size,
+            "model_path": model_path,
+            "engine": {
+                "nb_consecutive_frames": nb_consecutive_frames,
+                "conf_thresh": conf_thresh,
+                "max_bbox_size": max_bbox_size,
             },
-            "model" : {
-                "conf" : conf,
+            "model": {
+                "conf": conf,
                 # "iou" : iou,
             },
         }
@@ -53,7 +58,7 @@ def run_grid_search(out_file, loaded_df=None):
         "model_f1",
         "model_prec",
         "model_rec",
-        "config_str"
+        "config_str",
     ]
 
     df = pd.DataFrame(columns=columns)
@@ -64,13 +69,24 @@ def run_grid_search(out_file, loaded_df=None):
         if loaded_df is not None and config_str in loaded_df["config_str"]:
             # Load previous metrics in the dataframe provided
             seq_f1 = loaded_df.loc[loaded_df["config_str"] == config_str, "engine_f1"]
-            seq_prec = loaded_df.loc[loaded_df["config_str"] == config_str, "engine_prec"]
+            seq_prec = loaded_df.loc[
+                loaded_df["config_str"] == config_str, "engine_prec"
+            ]
             seq_rec = loaded_df.loc[loaded_df["config_str"] == config_str, "engine_rec"]
             model_f1 = loaded_df.loc[loaded_df["config_str"] == config_str, "model_f1"]
-            model_prec = loaded_df.loc[loaded_df["config_str"] == config_str, "model_prec"]
-            model_rec = loaded_df.loc[loaded_df["config_str"] == config_str, "model_rec"]
+            model_prec = loaded_df.loc[
+                loaded_df["config_str"] == config_str, "model_prec"
+            ]
+            model_rec = loaded_df.loc[
+                loaded_df["config_str"] == config_str, "model_rec"
+            ]
         else:
-            evaluation = EvaluationPipeline(dataset=datasets, config=config, device="mps", use_existing_predictions=True)
+            evaluation = EvaluationPipeline(
+                dataset=datasets,
+                config=config,
+                device="mps",
+                use_existing_predictions=True,
+            )
             metrics = evaluation.run()
             evaluation.save_metrics(Path("data/evaluation"))
             seq_f1 = metrics["engine_metrics"]["sequence_metrics"]["f1"]
@@ -79,7 +95,7 @@ def run_grid_search(out_file, loaded_df=None):
             model_f1 = metrics["model_metrics"]["f1"]
             model_prec = metrics["model_metrics"]["precision"]
             model_rec = metrics["model_metrics"]["recall"]
- 
+
         df.loc[len(df)] = [
             config["model_path"],
             config["engine"]["nb_consecutive_frames"],
@@ -100,8 +116,8 @@ def run_grid_search(out_file, loaded_df=None):
 
     df.to_csv(out_file)
 
-def analyze_results(df):
 
+def analyze_results(df):
     param_columns = [
         "nb_consecutive_frames",
         "conf_thresh",
@@ -134,11 +150,16 @@ def analyze_results(df):
     df_vis = df.copy()
     df_vis["f1_group"] = pd.qcut(df["engine_f1"], q=5, labels=False)
     plt.figure(figsize=(12, 6))
-    parallel_coordinates(df_vis[param_columns + ["f1_group"]], class_column="f1_group", colormap=plt.cm.viridis)
+    parallel_coordinates(
+        df_vis[param_columns + ["f1_group"]],
+        class_column="f1_group",
+        colormap=plt.cm.viridis,
+    )
     plt.title("Parallel coordinates")
     plt.show()
 
     # Check this representation : https://github.com/scikit-learn/scikit-learn/issues/24281
+
 
 if __name__ == "__main__":
     file = ""
