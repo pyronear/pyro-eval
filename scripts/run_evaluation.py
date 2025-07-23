@@ -110,13 +110,14 @@ def validate_parsed_args(args: dict) -> bool:
 
     return True
 
+
 def get_config(args: dict) -> bool:
     """
     Builds config dict from arguments
     """
     config = {
-        "engine" : {},
-        "model" : {},
+        "engine": {},
+        "model": {},
     }
     if args.get("nb_consecutive_frames"):
         config["engine"]["nb_consecutive_frames"] = args.get("nb_consecutive_frames")
@@ -130,8 +131,9 @@ def get_config(args: dict) -> bool:
         config["model"]["conf"] = args.get("model_conf")
     if args.get("imgsz"):
         config["model"]["imgsz"] = args.get("imgsz")
-    
+
     return config
+
 
 if __name__ == "__main__":
     cli_parser = make_cli_parser()

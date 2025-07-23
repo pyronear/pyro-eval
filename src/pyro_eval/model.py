@@ -12,14 +12,14 @@ from ultralytics import YOLO
 from .data_structures import CustomImage
 from .utils import get_class_default_params
 
+
 class Model:
     def __init__(
-            self,
-            model_path: str,
-            config : Dict,
-            device: str = None,
-        ):
-
+        self,
+        model_path: str,
+        config: Dict,
+        device: str = None,
+    ):
         self.model_path = model_path
         self.config = self.set_config(config)
         self.model = self.load_model()
@@ -64,7 +64,7 @@ class Model:
                 model_path=self.model_path,
                 format="onnx",
                 conf=self.config["conf"],
-                max_bbox_size=1
+                max_bbox_size=1,
             )
         except Exception as e:
             raise RuntimeError(
@@ -117,7 +117,7 @@ class Model:
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
-        
+
         if self.format != "onnx":
             self.model.to(self.device)
 
@@ -140,7 +140,7 @@ class Model:
         if self.format == "onnx":
             try:
                 # Returns an array of predicitions with boxes xyxyn and confidence
-                prediction = self.model(pil_image) # [[x1, y1, x2, y2, confidence]]
+                prediction = self.model(pil_image)  # [[x1, y1, x2, y2, confidence]]
             except Exception as e:
                 logging.error(f"Onnx inference failed on {image.path} : {e}")
                 prediction = []
@@ -171,7 +171,7 @@ class Model:
         Compute a SHA256 hash of a model file
         """
         hasher = hashlib.sha256()
-        with open(self.model_path, 'rb') as f:
+        with open(self.model_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hasher.update(chunk)
         model_hash = hasher.hexdigest()
@@ -179,7 +179,7 @@ class Model:
         # Save the hash to a file next to the model
         hash_file_path = self.model_path + ".sha256"
         try:
-            with open(hash_file_path, 'w') as f:
+            with open(hash_file_path, "w") as f:
                 f.write(model_hash)
         except Exception as e:
             logging.warning(f"Could not write hash file to {hash_file_path}: {e}")

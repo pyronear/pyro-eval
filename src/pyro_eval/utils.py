@@ -62,7 +62,7 @@ def parse_date_from_filepath(filepath):
 def make_dict_json_compatible(data):
     """
     Replaces values to be able dump a dict in a json:
-        - Replace True/False by "true"/"false"  
+        - Replace True/False by "true"/"false"
         - Convert Timedelta to str
         - Convert int64 to int
     """
@@ -280,8 +280,11 @@ def timing(name: str):
             logging.info(f"{name} executed in {duration:.4f} seconds")
             result["timing"] = duration
             return result
+
         return wrapper
+
     return decorator
+
 
 def get_class_default_params(class_name):
     """
@@ -292,7 +295,7 @@ def get_class_default_params(class_name):
     return {
         name: param.default
         for name, param in signature.parameters.items()
-        if param.default is not inspect.Parameter.empty and name != 'self'
+        if param.default is not inspect.Parameter.empty and name != "self"
     }
 
 
@@ -302,28 +305,35 @@ def _parse_pyproject_toml(package_name):
     """
     pyproject_path = "pyproject.toml"
     try:
-        with open(pyproject_path, 'r') as f:
+        with open(pyproject_path, "r") as f:
             data = toml.load(f)
     except:
-        logging.error(f"Unable to parse pyproject.toml to retrieve {package_name} information.")
+        logging.error(
+            f"Unable to parse pyproject.toml to retrieve {package_name} information."
+        )
 
-    poetry_dependencies = data.get('tool', {}).get('poetry', {}).get('dependencies', None)
-    uv_dependencies = data.get('tool', {}).get('uv', {}).get('source', {})
+    poetry_dependencies = (
+        data.get("tool", {}).get("poetry", {}).get("dependencies", None)
+    )
+    uv_dependencies = data.get("tool", {}).get("uv", {}).get("source", {})
     dependencies = poetry_dependencies or uv_dependencies
     if package_name not in dependencies:
         logging.error(f"{package_name} not found in pyproject.toml dependencies.")
         return None
     package_info = dependencies[package_name]
     if "git" not in package_info:
-        logging.error(f"Missing git url or revision for {package_name} pyproject.toml dependencies.")
+        logging.error(
+            f"Missing git url or revision for {package_name} pyproject.toml dependencies."
+        )
         return None
-    git_url = package_info['git']
-    rev = package_info.get('rev', 'main')
+    git_url = package_info["git"]
+    rev = package_info.get("rev", "main")
 
     return {
-        "git_url" : git_url,
-        "rev" : rev,
+        "git_url": git_url,
+        "rev": rev,
     }
+
 
 def get_remote_commit_hash(package_name):
     """
@@ -334,10 +344,10 @@ def get_remote_commit_hash(package_name):
     rev = package_info["rev"]
     try:
         result = subprocess.run(
-            ['git', 'ls-remote', git_url, f'refs/heads/{rev}'],
+            ["git", "ls-remote", git_url, f"refs/heads/{rev}"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
 
         if result.stdout.strip():
@@ -345,6 +355,6 @@ def get_remote_commit_hash(package_name):
             return hash_full
 
         return "Unknown"
-        
+
     except subprocess.CalledProcessError:
         return "Unknown"
