@@ -1,0 +1,6 @@
+outs:
+- md5: 5d0e92e797895ac3dcb80b50551d1cef.dir
+  size: 99551354
+  nfiles: 5
+  hash: md5
+  path: detectors
