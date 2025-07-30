@@ -96,16 +96,16 @@ def validate_parsed_args(args: dict) -> bool:
     Return whether the parsed args are valid.
     """
     if not args["dir_models"].exists() and not args["dir_models"].is_dir():
-        logging.error(f"invalid --dir-models")
+        logging.error("invalid --dir-models")
         return False
     if not args["dir_dataset"].exists() and not args["dir_dataset"].is_dir():
-        logging.error(f"invalid --dir-dataset")
+        logging.error("invalid --dir-dataset")
         return False
     if (
         not args["dir_temporal_dataset"].exists()
         and not args["dir_temporal_dataset"].is_dir()
     ):
-        logging.error(f"invalid --dir-temporal-dataset")
+        logging.error("invalid --dir-temporal-dataset")
         return False
 
     return True
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         # Launch Evaluation
 
         # Compare different models
-        filepaths_models = [fp for fp in dir_models.glob(f"**/*.pt")]
+        filepaths_models = [fp for fp in dir_models.glob("**/*.pt")]
         logger.info(
             f"Found {len(filepaths_models)} model in {dir_models}: {filepaths_models}"
         )

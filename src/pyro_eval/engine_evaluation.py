@@ -5,7 +5,6 @@ from collections import deque
 
 import numpy as np
 import pandas as pd
-
 from pyroengine.engine import Engine
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 
@@ -94,7 +93,7 @@ class EngineEvaluator:
             if self.model_path.endswith(".onnx"):
                 self.run_model_path = self.model_path
             elif self.model_path.endswith(".pt"):
-                logging.info(f"Exporting model file from pt to onnx format.")
+                logging.info("Exporting model file from pt to onnx format.")
                 self.run_model_path = export_model(self.model_path)
                 self.needs_deletion = True  # We remove the local .onnx file created
             else:

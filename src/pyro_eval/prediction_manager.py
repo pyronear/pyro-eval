@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import List, Dict
+from typing import Dict, List
+
 import numpy as np
 
 from .data_structures import CustomImage

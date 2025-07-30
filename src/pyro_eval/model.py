@@ -30,7 +30,7 @@ class Model:
     def load_model(self):
         if not self.model_path:
             raise ValueError(
-                f"No model provided for evaluation, path needs to be specified."
+                "No model provided for evaluation, path needs to be specified."
             )
 
         logging.info(f"Loading model : {self.model_path}")

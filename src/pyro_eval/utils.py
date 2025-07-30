@@ -1,16 +1,17 @@
 import inspect
 import logging
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import random
 import re
 import subprocess
 import time
-import toml
 from datetime import datetime
 from functools import wraps
 from pathlib import PosixPath
+
+import matplotlib.pyplot as plt
+import numpy as np
+import toml
 from pandas import Timedelta
 from ultralytics import YOLO
 
