@@ -8,3 +8,4 @@ data/roc/**/
 credentials/*.json
 __pycache__
 figs_tmp/
+pyronear_report.pdf
