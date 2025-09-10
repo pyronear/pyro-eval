@@ -1,4 +1,14 @@
 {
+
+  "titles": {
+    "daily_detections": "Détections totales vs alertes annotées",
+    "false_positives": "Faux positifs par jour",
+    "confirmed_fires": "Nombre de feux confirmés par jour",
+    "detections_by_hour": "Variation des détections dans la journée (par heure)",
+    "alerts_distribution": "Alertes par jour : vrais positifs, faux positifs, non annotés",
+    "site_hourly_comparison": "Variations des détections dans la journée selon le site"
+  },
+  
     "report_intro": "Pyronear est une initiative ouverte dédiée à la détection précoce des départs de feu grâce à un réseau de caméras et d'algorithmes d'analyse d'images. Ce rapport présente une synthèse des détections réalisées pour le ${nom_sdis}, sur une période de ${nb_days} jours allant du ${date_beginning} au ${date_end}. Au cours de cette période, ${nb_cameras} caméras ont été utilisées pour la surveillance. Le document rassemble des indicateurs globaux, des graphiques de suivi et des éléments d'interprétation afin d'offrir une vision claire et utile de l'activité du système.",
   
     "daily_detections": "Ce graphique montre le volume total de détections par jour comparé au nombre d'éléments annotés sur la période de ${nb_days} jours. Il permet d'évaluer la charge quotidienne du système et de suivre le rythme de validation par annotation.",
