@@ -9,11 +9,11 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
 import json 
+import argparse 
 
-with open("text_pyronear.json", encoding="utf-8") as jsonfile:
-    texts=json.load(jsonfile)
-
-dataset = pd.read_csv("../data/datasets/report_dataset/pyronear_test_report.csv")
+def load_text_file(Path):
+    with open(Path, encoding="utf-8") as jsonfile:
+        return json.load(jsonfile)
 
 def date_to_datetime_grouped(dataset: pd.DataFrame) -> pd.DataFrame:
     ''' This function is the first one called for every csv that we want to treat, 
@@ -32,8 +32,9 @@ def days_and_cameras(dataset):
     dmin = dataset['date'].min()
     dmax = dataset['date'].max()
     nb_days = (dmax - dmin).days + 1 
-    nb_cameras = dataset['site'].nunique()
-    return nb_days, nb_cameras
+    nb_cameras = dataset['name'].nunique()
+    nb_sites = dataset['site'].unique()
+    return nb_days, nb_cameras, nb_sites 
 
 def first_statistics(dataset: pd.DataFrame):
     '''This function is returning a dictionnary with all the statistics we want from the csv
@@ -142,7 +143,7 @@ def summary_table(stats):
     }, index=['Alertes annotées', 'Vrais positifs', 'Faux positifs', 'Non annotées'])
     return df_summary
 
-def make_report_figures(dataset, detections_per_day, stats, outdir="figs_tmp"):
+def make_report_figures(texts,dataset, detections_per_day, stats, outdir="figs_tmp"):
     os.makedirs(outdir, exist_ok=True)
     paths = []
 
@@ -150,7 +151,7 @@ def make_report_figures(dataset, detections_per_day, stats, outdir="figs_tmp"):
     plt.figure(figsize=(12,6))
     detections_per_day.plot(kind='line', marker='o', label='Toutes les détections')
     stats['annoted_per_day'].plot(kind='line', marker='x', label='Alertes annotées')
-    plt.title("Détections totales vs alertes annotées")
+    plt.title(texts["titles"]["daily_detections"])
     plt.xlabel("Date"); plt.ylabel("Nombre de détections"); plt.xticks(rotation=45)
     plt.legend(); plt.tight_layout(); plt.savefig(fig_path, dpi=150); plt.close()
     paths.append(fig_path)
@@ -158,7 +159,7 @@ def make_report_figures(dataset, detections_per_day, stats, outdir="figs_tmp"):
     fig_path = os.path.join(outdir, "false_positives_per_day.png")
     plt.figure(figsize=(12,6))
     stats['false_positives_per_day'].plot(kind='line', marker='s', label='Faux positifs')
-    plt.title("Faux positifs par jour")
+    plt.title(texts["titles"]["false_positives"])
     plt.xlabel("Date"); plt.ylabel("Nombre de faux positifs"); plt.xticks(rotation=45)
     plt.legend(); plt.tight_layout(); plt.savefig(fig_path, dpi=150); plt.close()
     paths.append(fig_path)
@@ -166,7 +167,7 @@ def make_report_figures(dataset, detections_per_day, stats, outdir="figs_tmp"):
     fig_path = os.path.join(outdir, "true_positives_per_day.png")
     plt.figure(figsize=(12,6))
     stats['true_positives_per_day'].plot(kind='line', marker='o', label='Feux confirmés', color='green')
-    plt.title("Nombre de feux confirmés par jour")
+    plt.title(texts["titles"]["confirmed_fires"])
     plt.xlabel("Date"); plt.ylabel("Nombre de feux"); plt.xticks(rotation=45)
     plt.legend(); plt.tight_layout(); plt.savefig(fig_path, dpi=150); plt.close()
     paths.append(fig_path)
@@ -175,7 +176,7 @@ def make_report_figures(dataset, detections_per_day, stats, outdir="figs_tmp"):
     fig_path = os.path.join(outdir, "detections_per_hour.png")
     plt.figure(figsize=(12,6))
     stats['detections_per_hour'].plot(kind='bar')
-    plt.title("Variation des détections dans la journée (par heure)")
+    plt.title(texts["titles"]["detections_by_hour"])
     plt.xlabel("Heure"); plt.ylabel("Nombre de détections")
     plt.tight_layout(); plt.savefig(fig_path, dpi=150); plt.close()
     paths.append(fig_path)
@@ -191,7 +192,7 @@ def make_report_figures(dataset, detections_per_day, stats, outdir="figs_tmp"):
     step = max(1, len(df_stack)//15)  
     ax.set_xticks(range(0, len(df_stack), step))
     ax.set_xticklabels(df_stack.index[::step], rotation=45)
-    plt.title("Alertes par jour : vrais positifs, faux positifs, non annotés")
+    plt.title(texts["titles"]["alerts_distribution"])
     plt.xlabel("Date"); plt.ylabel("Nombre d'alertes")
     plt.tight_layout(); plt.savefig(fig_path, dpi=150); plt.close()
     paths.append(fig_path)
@@ -206,14 +207,14 @@ def make_report_figures(dataset, detections_per_day, stats, outdir="figs_tmp"):
             marker="o",
             label=site
         )
-    plt.title("Variations des détections dans la journée selon le site")
+    plt.title(texts["titles"]["site_hourly_comparison"])
     plt.xlabel("Heure de la journée"); plt.ylabel("Nombre de détections")
     plt.legend(title="Site"); plt.tight_layout(); plt.savefig(fig_path, dpi=150); plt.close()
     paths.append(fig_path)
 
     return paths
 
-def build_pdf_skeleton(output_path="rapport.pdf", sdis_name="SDIS 77",
+def build_pdf_skeleton(texts,output_path, sdis_name,
                        nb_days=0, date_beginning="", date_end="", nb_cameras=0):
     doc = SimpleDocTemplate(
         output_path, pagesize=A4,
@@ -273,15 +274,16 @@ def header_footer(canvas, doc):
     canvas.restoreState()
 
 
-def export_pdf_report(output_path, dataset, detections_per_day, stats, df_summary, fig_paths, sdis_name = "SDIS 77"):
-    nb_days, nb_cameras = days_and_cameras(dataset)
+def export_pdf_report(texts,output_path, dataset, detections_per_day, stats, df_summary, fig_paths, sdis_name ):
+    nb_days, nb_cameras, nb_sites = days_and_cameras(dataset)
     dmin = str(min(dataset['date']))
     dmax = str(max(dataset['date']))
 
     # base
     doc, styles, story = build_pdf_skeleton(
-    output_path="../data/datasets/report_dataset/rapport_pyronear.pdf",
-    sdis_name="SDIS 77",
+    texts,
+    output_path=output_path,
+    sdis_name=sdis_name,
     nb_days=nb_days,
     date_beginning=dmin,
     date_end=dmax,
@@ -313,13 +315,25 @@ def export_pdf_report(output_path, dataset, detections_per_day, stats, df_summar
 
     doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
 
+def main():
 
-if __name__ == "__main__":
+    parser= argparse.ArgumentParser(description="Automatic performances report", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--input_csv", type=str, default="pyronear.csv", help="Export file path")
+    parser.add_argument("--text_path", type=str, default="text_pyronear.json", help="Repport text file")
+    parser.add_argument("--output_pdf", type=str, default="pyronear_report.pdf", help="Output PDF")
+    parser.add_argument("--sdis_name", type=str, default=None, help="SDIS name")
+
+    args = parser.parse_args()
+
+    texts = load_text_file(args.text_path)
+    dataset = pd.read_csv(args.input_csv)
     dataset = date_to_datetime_grouped(dataset)
     detections_per_day, stats = first_statistics(dataset)
     df_summary = summary_table(stats)
 
-    fig_paths = make_report_figures(dataset, detections_per_day, stats)  
-    export_pdf_report("rapport_pyronear.pdf", dataset, detections_per_day, stats, df_summary, fig_paths)
+    fig_paths = make_report_figures(texts,dataset, detections_per_day, stats)  
+    export_pdf_report(texts,args.output_pdf, dataset, detections_per_day, stats, df_summary, fig_paths, sdis_name=args.sdis_name)
 
+if __name__ == "__main__":
+    main()
     
