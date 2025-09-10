@@ -1,5 +1,4 @@
 {
-
   "titles": {
     "daily_detections": "Détections totales vs alertes annotées",
     "false_positives": "Faux positifs par jour",
@@ -8,20 +7,31 @@
     "alerts_distribution": "Alertes par jour : vrais positifs, faux positifs, non annotés",
     "site_hourly_comparison": "Variations des détections dans la journée selon le site"
   },
-  
-    "report_intro": "Pyronear est une initiative ouverte dédiée à la détection précoce des départs de feu grâce à un réseau de caméras et d'algorithmes d'analyse d'images. Ce rapport présente une synthèse des détections réalisées pour le ${nom_sdis}, sur une période de ${nb_days} jours allant du ${date_beginning} au ${date_end}. Au cours de cette période, ${nb_cameras} caméras ont été utilisées pour la surveillance. Le document rassemble des indicateurs globaux, des graphiques de suivi et des éléments d'interprétation afin d'offrir une vision claire et utile de l'activité du système.",
-  
-    "daily_detections": "Ce graphique montre le volume total de détections par jour comparé au nombre d'éléments annotés sur la période de ${nb_days} jours. Il permet d'évaluer la charge quotidienne du système et de suivre le rythme de validation par annotation.",
-  
-    "false_positives": "Cette courbe suit l'évolution des faux positifs entre le ${date_beginning} et le ${date_end}. Elle met en évidence les périodes où le système a généré des alertes non pertinentes et oriente les actions de réduction des erreurs.",
-  
-    "confirmed_fires": "Ce graphique présente le nombre de feux confirmés chaque jour sur la zone couverte par le ${nom_sdis}. Il constitue un indicateur direct de l'activité réelle détectée.",
-  
-    "alerts_distribution": "Le diagramme empilé illustre la répartition entre feux confirmés, faux positifs et détections non annotées sur la période de ${nb_days} jours. Il met en lumière la part d'alertes à qualifier et l'équilibre global entre signalements pertinents et erreurs.",
-  
-    "detections_by_hour": "Cette figure regroupe les détections selon l'heure de la journée, toutes caméras confondues (${nb_cameras} caméras). Elle permet d'identifier des tendances temporelles et d'orienter l'organisation de la veille.",
-  
-    "site_hourly_comparison": "Ce graphique compare l'évolution horaire des détections selon les sites couverts par le ${nom_sdis}. Il aide à repérer des profils spécifiques à certains emplacements et à anticiper les périodes plus actives."
-  }
+  "axes": {
+    "daily_detections": {"x": "Date", "y": "Nombre de détections"},
+    "false_positives": {"x": "Date", "y": "Nombre de faux positifs"},
+    "confirmed_fires": {"x": "Date", "y": "Nombre de feux"},
+    "detections_by_hour": {"x": "Heure", "y": "Nombre de détections"},
+    "alerts_distribution": {"x": "Date", "y": "Nombre d'alertes"},
+    "site_hourly_comparison": {"x": "Heure de la journée", "y": "Nombre de détections"}
+  },
+  "labels": {
+    "all_detections": "Toutes les détections",
+    "annoted_alerts": "Alertes annotées",
+    "false_positives": "Faux positifs",
+    "true_positives": "Feux confirmés",
+    "unlabeled": "Non annotées",
+    "site": "Site",
+    "detections_by_hour": "Nombre de détections"
+
+  },
+  "report_intro": "Pyronear est une initiative ouverte dédiée à la détection précoce des départs de feu grâce à un réseau de caméras et d'algorithmes d'analyse d'images. Ce rapport présente une synthèse des détections réalisées pour le ${nom_sdis}, sur une période de ${nb_days} jours allant du ${date_beginning} au ${date_end}. Au cours de cette période, ${nb_cameras} caméras ont été utilisées pour la surveillance. Le document rassemble des indicateurs globaux, des graphiques de suivi et des éléments d'interprétation afin d'offrir une vision claire et utile de l'activité du système.",
+  "daily_detections": "Ce graphique montre le volume total de détections par jour comparé au nombre d'éléments annotés sur la période de ${nb_days} jours. Il permet d'évaluer la charge quotidienne du système et de suivre le rythme de validation par annotation.",
+  "false_positives": "Cette courbe suit l'évolution des faux positifs entre le ${date_beginning} et le ${date_end}. Elle met en évidence les périodes où le système a généré des alertes non pertinentes et oriente les actions de réduction des erreurs.",
+  "confirmed_fires": "Ce graphique présente le nombre de feux confirmés chaque jour sur la zone couverte par le ${nom_sdis}. Il constitue un indicateur direct de l'activité réelle détectée.",
+  "alerts_distribution": "Le diagramme empilé illustre la répartition entre feux confirmés, faux positifs et détections non annotées sur la période de ${nb_days} jours. Il met en lumière la part d'alertes à qualifier et l'équilibre global entre signalements pertinents et erreurs.",
+  "detections_by_hour": "Cette figure regroupe les détections selon l'heure de la journée, toutes caméras confondues (${nb_cameras} caméras). Elle permet d'identifier des tendances temporelles et d'orienter l'organisation de la veille.",
+  "site_hourly_comparison": "Ce graphique compare l'évolution horaire des détections selon les sites couverts par le ${nom_sdis}. Il aide à repérer des profils spécifiques à certains emplacements et à anticiper les périodes plus actives."
+}
 
   
