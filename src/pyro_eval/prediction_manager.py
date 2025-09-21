@@ -1,23 +1,24 @@
 import json
 import logging
-from typing import List, Dict
+from typing import Dict, List
+
 import numpy as np
 
-from.data_structures import CustomImage
+from .data_structures import CustomImage
 from .model import Model
-from .utils import make_dict_json_compatible 
+from .utils import make_dict_json_compatible
+
 
 class PredictionManager:
     def __init__(
-            self,
-            model: Model,
-            prediction_file: str,
-            use_existing_predictions: bool = True
-        ):
+        self, model: Model, prediction_file: str, use_existing_predictions: bool = True
+    ):
         self.model = model
         self.prediction_file = prediction_file
         self.use_existing_predictions = use_existing_predictions
-        self.predictions = self.load_predictions() if self.use_existing_predictions else {}
+        self.predictions = (
+            self.load_predictions() if self.use_existing_predictions else {}
+        )
 
     def load_predictions(self) -> Dict[str, np.ndarray]:
         """
@@ -34,7 +35,9 @@ class PredictionManager:
             return loaded_predictions
 
         except Exception as e:
-            logging.error(f"Failed to load predictions from {self.prediction_file}: {e}")
+            logging.error(
+                f"Failed to load predictions from {self.prediction_file}: {e}"
+            )
             return {}
 
     def save_predictions(self):

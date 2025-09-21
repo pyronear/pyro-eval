@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import numpy as np
 from PIL import Image as PILImage
+from pyroengine.utils import letterbox
 
 from .utils import parse_date_from_filepath, xywh2xyxy
 
@@ -23,7 +24,10 @@ class CustomImage:
 
     timestamp: str = field(init=False)
     hash: str = field(init=False)
-    prediction: Optional[str] = field(default=None) # Formatted as a 5-array of predictions [[boxes.xyxyn, conf]]
+    prediction: Optional[str] = field(
+        default=None
+    )  # Formatted as a 5-array of predictions [[boxes.xyxyn, conf]]
+    image_size = (1024, 1024)
 
     def __post_init__(self):
         self.timestamp = parse_date_from_filepath(self.path)["date"]
@@ -31,7 +35,7 @@ class CustomImage:
         self.label: bool = len(self.boxes) > 0
         self.name: str = os.path.basename(self.path)
 
-    def load(self) -> PILImage.Image:
+    def load(self, resize=False) -> PILImage.Image:
         """
         Load image only when needed
         """
@@ -40,6 +44,9 @@ class CustomImage:
         except:
             image = None
             logging.error(f"Unable to load image : {self.path}")
+        if resize:
+            image, _ = letterbox(np.array(image), self.image_size)
+
         return image
 
     def compute_hash(self):
@@ -69,6 +76,47 @@ class CustomImage:
             logging.warning(f"Failed to parse boxes for image {self.path}: {e}")
             return []
 
+    @property
+    def preds_onnx_format(self):
+        """
+        Convert predictions of shape (N, 5) in xyxyn format + confidence
+        to a pseudo ONNX format to pass into the Engine:
+            - shape (85, N) - transposed compared to ultralytics output
+            - xywh not normalized + conf + placeholder for 80 classes (left empty)
+        """
+
+        preds = np.array(self.prediction)
+
+        if preds.size == 0:
+            return np.empty((5, 0))
+
+        boxes_xyxyn = preds[:, :4]  # [x1, y1, x2, y2]
+        confidences = preds[:, 4]  # [conf]
+
+        # Convert from xyxy to xywh et denormalize
+        x1, y1, x2, y2 = (
+            boxes_xyxyn[:, 0],
+            boxes_xyxyn[:, 1],
+            boxes_xyxyn[:, 2],
+            boxes_xyxyn[:, 3],
+        )
+
+        w, h = self.image_size
+        x_center = (x1 + x2) / 2 * w
+        y_center = (y1 + y2) / 2 * h
+        width = (x2 - x1) * w
+        height = (y2 - y1) * h
+
+        # Build array with ONNX format : vertical stack (5, n_detections)
+        onnx_predictions = np.vstack([x_center, y_center, width, height, confidences])
+
+        return onnx_predictions
+
+    def resize(self):
+        """
+        Resize to target size and apply letterbox algorithm
+        """
+
 
 class Sequence:
     """
@@ -76,10 +124,10 @@ class Sequence:
     """
 
     def __init__(
-            self,
-            images: list[CustomImage] = [],
-            sequence_number: int = None,
-            ):
+        self,
+        images: list[CustomImage] = [],
+        sequence_number: int = None,
+    ):
         self.images = images
         self.sequence_start = self.images[0].timestamp
         self.sequence_number = sequence_number

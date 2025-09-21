@@ -13,7 +13,13 @@ from .dataset import EvaluationDataset
 from .model import Model
 from .path_manager import get_prediction_csv
 from .prediction_manager import PredictionManager
-from .utils import compute_metrics, export_model, generate_run_id, make_dict_json_compatible, timing
+from .utils import (
+    compute_metrics,
+    export_model,
+    generate_run_id,
+    make_dict_json_compatible,
+    timing,
+)
 
 logging.getLogger("pyroengine.engine").setLevel(logging.WARNING)
 
@@ -31,12 +37,14 @@ class EngineEvaluator:
         run_id: str = None,
         device: str = None,
     ):
-
         self.dataset = dataset
         self.model = model
         self.prediction_manager = prediction_manager
         self.config = config["engine"]
-        self.save = save  # If save is True we regularly dump results and the config used
+        self.model_config = config["model"]
+        self.save = (
+            save  # If save is True we regularly dump results and the config used
+        )
         self.run_id = run_id if run_id else generate_run_id()
         self.results_data = [
             "sequence_id",
@@ -85,7 +93,7 @@ class EngineEvaluator:
             if self.model_path.endswith(".onnx"):
                 self.run_model_path = self.model_path
             elif self.model_path.endswith(".pt"):
-                logging.info(f"Exporting model file from pt to onnx format.")
+                logging.info("Exporting model file from pt to onnx format.")
                 self.run_model_path = export_model(self.model_path)
                 self.needs_deletion = True  # We remove the local .onnx file created
             else:
@@ -98,6 +106,7 @@ class EngineEvaluator:
             conf_thresh=self.config["conf_thresh"],
             max_bbox_size=self.config["max_bbox_size"],
             model_path=self.run_model_path,
+            model_conf_thresh=self.model_config["conf"],
         )
 
         return engine
@@ -114,14 +123,17 @@ class EngineEvaluator:
 
         for image in sequence.images:
             # Run prediction on a single image
-            image.prediction = self.prediction_manager.predictions.get(image.name, None) 
+            image.prediction = self.prediction_manager.predictions.get(image.name, None)
             if image.prediction is not None:
                 # Use the previously computed prediction stored in the prediciton json file
-                confidence = self.engine.predict(frame=None, fake_pred=np.array(image.prediction).reshape(-1, 5))
+                confidence = self.engine.predict(
+                    frame=None, fake_pred=image.preds_onnx_format
+                )
             else:
                 pil_image = image.load()
                 confidence = self.engine.predict(pil_image)
                 # We store the prediction to be able to load it later
+                # No confidence thresholding should be applied to saved predictions
                 self.prediction_manager.predict(images=[image])
 
             sequence_results.loc[len(sequence_results)] = [
@@ -277,7 +289,9 @@ class EngineEvaluator:
         )
 
         if not tp_sequences["detection_delay"].isnull().all():
-            avg_detection_delay = tp_sequences["detection_delay"].dropna().mean().total_seconds() / 60
+            avg_detection_delay = (
+                tp_sequences["detection_delay"].dropna().mean().total_seconds() / 60
+            )
             logging.info(
                 f"Avg. delay before detection (TP sequences): {avg_detection_delay}"
             )
@@ -299,4 +313,3 @@ class EngineEvaluator:
             ),
             "predictions": predictions,
         }
-

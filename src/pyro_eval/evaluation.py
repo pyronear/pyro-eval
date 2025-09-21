@@ -3,8 +3,8 @@ import logging
 from pathlib import Path
 from typing import Dict
 
-import pyroengine.engine as engine
 from pandas import Timedelta
+from pyroengine.engine import Engine
 from pyroengine.vision import Classifier
 
 from .dataset import EvaluationDataset
@@ -13,7 +13,12 @@ from .model import Model
 from .model_evaluation import ModelEvaluator
 from .path_manager import get_prediction_path
 from .prediction_manager import PredictionManager
-from .utils import make_dict_json_compatible, generate_run_id, get_class_default_params, get_git_revision
+from .utils import (
+    generate_run_id,
+    get_class_default_params,
+    get_remote_commit_hash,
+    make_dict_json_compatible,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -29,7 +34,6 @@ class EvaluationPipeline:
         device: str | None = None,
         use_existing_predictions: bool = True,
     ):
-
         self.model_dataset = dataset.get("model")
         self.engine_dataset = dataset.get("engine")
         self.config = self.get_config(config)
@@ -44,7 +48,7 @@ class EvaluationPipeline:
         self.prediction_manager = PredictionManager(
             model=self.model,
             prediction_file=get_prediction_path(self.model.hash),
-            use_existing_predictions=use_existing_predictions
+            use_existing_predictions=use_existing_predictions,
         )
 
         # Evaluate the model performance on single images
@@ -75,21 +79,21 @@ class EvaluationPipeline:
         if "model_path" not in config:
             raise ValueError("A model_path must be provided in the evaluation config.")
 
-        engine_default_values = get_class_default_params(engine.Engine)
+        engine_default_values = get_class_default_params(Engine)
         model_default_values = get_class_default_params(Classifier)
 
         engine_config = config.get("engine", {})
         engine_config.setdefault("model_path", config.get("model_path"))
-        engine_config.setdefault("nb_consecutive_frames", engine_default_values["nb_consecutive_frames"])
+        engine_config.setdefault(
+            "nb_consecutive_frames", engine_default_values["nb_consecutive_frames"]
+        )
         engine_config.setdefault("conf_thresh", engine_default_values["conf_thresh"])
         engine_config.setdefault("max_bbox_size", model_default_values["max_bbox_size"])
 
         model_config = config.get("model", {})
         model_config.setdefault("model_path", config.get("model_path"))
         model_config.setdefault("iou", model_default_values["iou"])
-        # model_config.setdefault("conf", model_default_values["conf"])
-        # FIXME : in the engine we instanciate with conf=0.05 but the value is hardcoded hence can't be retrieved
-        model_config.setdefault("conf", 0.05)
+        model_config.setdefault("conf", engine_default_values["model_conf_thresh"])
         model_config.setdefault("imgsz", model_default_values["imgsz"])
 
         config.setdefault("eval", ["model", "engine"])
@@ -108,6 +112,7 @@ class EvaluationPipeline:
             self.metrics["engine_metrics"] = self.engine_evaluator.evaluate()
 
         self.display_metrics()
+        return self.metrics
 
     def save_metrics(self, save_dir: Path):
         """
@@ -118,31 +123,32 @@ class EvaluationPipeline:
         logging.info(f"Saving metrics in {filepath_result}")
 
         dataset_info = {
-            subset : {
+            subset: {
                 "ID": dataset.dataset_ID,
                 "datapath": str(dataset.datapath),
                 "Number of images": len(dataset),
                 "Number of sequences": len(dataset.sequences),
-                "hash" : dataset.hash,
+                "hash": dataset.hash,
             }
             for subset, dataset in zip(
-                ["model", "engine"],
-                [self.model_dataset, self.engine_dataset]
-                )
+                ["model", "engine"], [self.model_dataset, self.engine_dataset]
+            )
         }
 
         self.config["model"]["hash"] = self.model.hash
-        self.config["pyro_engine_commit"] = get_git_revision(engine.__file__)
+        self.config["pyro_engine_commit"] = get_remote_commit_hash("pyroengine")
         timings = {
-            "engine" : self.metrics.get("engine_metrics", {}).get("timing"),
-            "model" : self.metrics.get("model_metrics", {}).get("timing"),
+            "engine": self.metrics.get("engine_metrics", {}).get("timing"),
+            "model": self.metrics.get("model_metrics", {}).get("timing"),
         }
-        self.metrics.update({
-            "config": self.config,
-            "run_id": self.run_id,
-            "dataset": dataset_info,
-            "timing" : timings,
-        })
+        self.metrics.update(
+            {
+                "config": self.config,
+                "run_id": self.run_id,
+                "dataset": dataset_info,
+                "timing": timings,
+            }
+        )
 
         metrics_dump = make_dict_json_compatible(self.metrics)
 
