@@ -39,14 +39,21 @@ def days_and_cameras(dataset):
 def first_statistics(dataset: pd.DataFrame):
     '''This function is returning a dictionnary with all the statistics we want from the csv
     for futur plotting'''
+
+    ANNOTATIONS = {
+        "TRUE": "wildfire_smoke",
+        "FALSES": ["other", "other_smoke"]
+    }
+
     detections_per_day = dataset.groupby('date')['id'].count()
     annoted_fires = dataset[dataset['is_wildfire'].notna()]['id'].count()
     annoted_per_day = dataset[dataset['is_wildfire'].notna()].groupby('date')['id'].count()
     unlabeled = dataset[dataset['is_wildfire'].isna()]['id'].count()
-    false_positives = dataset[dataset['is_wildfire'] == False]['id'].count()
-    false_positives_per_day = dataset[dataset['is_wildfire'] == False].groupby('date')['id'].count()
-    true_positives = dataset[dataset['is_wildfire'] == True]['id'].count()
-    true_positives_per_day = dataset[dataset['is_wildfire'] == True].groupby('date')['id'].count()
+    unlabeled_per_day = dataset[dataset['is_wildfire'].isna()].groupby('date')['id'].count()
+    false_positives = dataset[dataset['is_wildfire'].isin(ANNOTATIONS["FALSES"])]['id'].count()
+    false_positives_per_day = dataset[dataset['is_wildfire'].isin(ANNOTATIONS["FALSES"])].groupby('date')['id'].count()
+    true_positives = dataset[dataset['is_wildfire'] == (ANNOTATIONS["TRUE"])]['id'].count()
+    true_positives_per_day = dataset[dataset['is_wildfire'] == (ANNOTATIONS["TRUE"])].groupby('date')['id'].count()
     detections_per_hour = dataset.groupby('hour')['id'].count()
     detections_per_hour_site = dataset.groupby(['site', 'hour'])['id'].count().unstack(fill_value=0)
 
@@ -54,6 +61,7 @@ def first_statistics(dataset: pd.DataFrame):
         "annoted_fires": annoted_fires,
         "annoted_per_day": annoted_per_day,
         "unlabeled": unlabeled,
+        "unlabeled_per_day": unlabeled_per_day,
         "false_positives": false_positives,
         "false_positives_per_day": false_positives_per_day,
         "true_positives": true_positives,
@@ -199,9 +207,9 @@ def make_report_figures(texts, dataset, detections_per_day, stats, outdir="figs_
     plt.close()
     paths.append(fig_path)
 
-    true_pos = dataset[dataset['is_wildfire'] == True].groupby('date')['id'].count()
-    false_pos = dataset[dataset['is_wildfire'] == False].groupby('date')['id'].count()
-    unlabeled = dataset[dataset['is_wildfire'].isna()].groupby('date')['id'].count()
+    true_pos = stats['true_positives_per_day']
+    false_pos = stats['false_positives_per_day']
+    unlabeled = stats['unlabeled_per_day']
     df_stack = pd.DataFrame({'True Positives': true_pos, 'False Positives': false_pos, 'Unlabeled': unlabeled}).fillna(0)
     fig_path = os.path.join(outdir, "stacked_by_day.png")
     ax = df_stack.plot(kind='bar', stacked=True, figsize=(12,6))
@@ -359,4 +367,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
     
