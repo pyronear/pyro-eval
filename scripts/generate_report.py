@@ -41,8 +41,8 @@ def first_statistics(dataset: pd.DataFrame):
     for futur plotting'''
 
     ANNOTATIONS = {
-        "TRUE": "wildfire_smoke",
-        "FALSES": ["other", "other_smoke"]
+        "TRUE": ["wildfire_smoke", "other_smoke"],
+        "FALSE": "other"
     }
 
     detections_per_day = dataset.groupby('date')['id'].count()
@@ -50,10 +50,10 @@ def first_statistics(dataset: pd.DataFrame):
     annoted_per_day = dataset[dataset['is_wildfire'].notna()].groupby('date')['id'].count()
     unlabeled = dataset[dataset['is_wildfire'].isna()]['id'].count()
     unlabeled_per_day = dataset[dataset['is_wildfire'].isna()].groupby('date')['id'].count()
-    false_positives = dataset[dataset['is_wildfire'].isin(ANNOTATIONS["FALSES"])]['id'].count()
-    false_positives_per_day = dataset[dataset['is_wildfire'].isin(ANNOTATIONS["FALSES"])].groupby('date')['id'].count()
-    true_positives = dataset[dataset['is_wildfire'] == (ANNOTATIONS["TRUE"])]['id'].count()
-    true_positives_per_day = dataset[dataset['is_wildfire'] == (ANNOTATIONS["TRUE"])].groupby('date')['id'].count()
+    false_positives = dataset[dataset['is_wildfire']==(ANNOTATIONS["FALSE"])]['id'].count()
+    false_positives_per_day = dataset[dataset['is_wildfire']==(ANNOTATIONS["FALSE"])].groupby('date')['id'].count()
+    true_positives = dataset[dataset['is_wildfire'].isin(ANNOTATIONS["TRUE"])]['id'].count()
+    true_positives_per_day = dataset[dataset['is_wildfire'].isin(ANNOTATIONS["TRUE"])].groupby('date')['id'].count()
     detections_per_hour = dataset.groupby('hour')['id'].count()
     detections_per_hour_site = dataset.groupby(['site', 'hour'])['id'].count().unstack(fill_value=0)
 
