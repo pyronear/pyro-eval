@@ -327,8 +327,9 @@ def _parse_pyproject_toml(package_name):
             f"Missing git url or revision for {package_name} pyproject.toml dependencies."
         )
         return None
-    git_url = package_info["git"]
-    rev = package_info.get("rev", "main")
+
+    git_url = package_info.get("git")
+    rev = package_info.get("rev", None) or package_info.get("branch", "main")
 
     return {
         "git_url": git_url,
@@ -343,6 +344,8 @@ def get_remote_commit_hash(package_name):
     package_info = _parse_pyproject_toml(package_name)
     git_url = package_info["git_url"]
     rev = package_info["rev"]
+    if git_url is None:
+        return "Unknown"
     try:
         result = subprocess.run(
             ["git", "ls-remote", git_url, f"refs/heads/{rev}"],

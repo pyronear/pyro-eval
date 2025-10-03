@@ -33,21 +33,28 @@ class ModelEvaluator:
             "fp": [],
             "fn": [],
         }
+        self.boxes = {}
 
         self.prediction_file = get_prediction_path(self.config["model_path"])
 
-    def track_predictions(self, image_path: str, fp: int, tp: int, fn: int) -> None:
+    def track_predictions(
+            self,
+            image_name: str,
+            fp: int,
+            tp: int,
+            fn: int
+        ) -> None:
         """
         Track and stroe predictions for each image
         """
         if fp > 0:
-            self.predictions["fp"].append(image_path)
+            self.predictions["fp"].append(image_name)
         elif tp > 0:
-            self.predictions["tp"].append(image_path)
+            self.predictions["tp"].append(image_name)
         if fn > 0:
-            self.predictions["fn"].append(image_path)
+            self.predictions["fn"].append(image_name)
         else:
-            self.predictions["tn"].append(image_path)
+            self.predictions["tn"].append(image_name)
 
     @timing("Model evaluation")
     def evaluate(self):
@@ -72,7 +79,8 @@ class ModelEvaluator:
             pred_scores = np.array(
                 [pred[-1] for pred in image.prediction]
             )  # confidences
-
+            # Store bboxes
+            self.boxes[image.name] = image.prediction
             # For ROC: take the highest confidence, or 0 if no prediction
             if len(pred_scores) > 0:
                 y_scores.append(float(np.max(pred_scores)))
@@ -82,7 +90,7 @@ class ModelEvaluator:
             img_fp, img_tp, img_fn = find_matches(
                 gt_boxes, pred_boxes, self.iou_threshold
             )
-            self.track_predictions(image.path, img_fp, img_tp, img_fn)
+            self.track_predictions(image.name, img_fp, img_tp, img_fn)
 
             nb_fp += img_fp
             nb_tp += img_tp
@@ -119,6 +127,7 @@ class ModelEvaluator:
             "tn": len(self.predictions["tn"]),
             "predictions": self.predictions,
             "roc_curve": self.roc_data,
+            "boxes": self.boxes,
         }
 
     def save_roc_curve(self) -> None:

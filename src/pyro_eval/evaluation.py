@@ -48,6 +48,7 @@ class EvaluationPipeline:
         self.prediction_manager = PredictionManager(
             model=self.model,
             prediction_file=get_prediction_path(self.model.hash),
+            config=self.config,
             use_existing_predictions=use_existing_predictions,
         )
 
@@ -129,6 +130,7 @@ class EvaluationPipeline:
                 "Number of images": len(dataset),
                 "Number of sequences": len(dataset.sequences),
                 "hash": dataset.hash,
+                "tree_info" : dataset.tree_info()
             }
             for subset, dataset in zip(
                 ["model", "engine"], [self.model_dataset, self.engine_dataset]

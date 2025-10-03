@@ -11,7 +11,6 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_
 from .data_structures import Sequence
 from .dataset import EvaluationDataset
 from .model import Model
-from .path_manager import get_prediction_csv
 from .prediction_manager import PredictionManager
 from .utils import (
     compute_metrics,
@@ -33,7 +32,6 @@ class EngineEvaluator:
         model: Model,
         prediction_manager: PredictionManager,
         config: dict = {},
-        save: bool = False,
         run_id: str = None,
         device: str = None,
     ):
@@ -42,9 +40,6 @@ class EngineEvaluator:
         self.prediction_manager = prediction_manager
         self.config = config["engine"]
         self.model_config = config["model"]
-        self.save = (
-            save  # If save is True we regularly dump results and the config used
-        )
         self.run_id = run_id if run_id else generate_run_id()
         self.results_data = [
             "sequence_id",
@@ -62,9 +57,6 @@ class EngineEvaluator:
         self.engine = self.instanciate_engine()
         self.device = device
 
-        # Retrieve images from the dataset
-        self.images = self.dataset.get_all_images()
-
     @timing("Engine evaluation")
     def evaluate(self):
         # Run Engine predictions on each sequence of the dataset
@@ -77,10 +69,13 @@ class EngineEvaluator:
             "sequence_metrics": self.compute_sequence_level_metrics(),
         }
 
-        # Save metrics in a json file
-        if self.save:
-            with open(os.path.join(self.result_dir, "engine_metrics.json"), "w") as fip:
-                json.dump(make_dict_json_compatible(self.metrics), fip)
+        # Add engine processed predictions in the final results
+        engine_predictions = {
+            image.name : image.engine_prediction
+            for image in self.dataset.get_all_images()
+        }
+
+        self.metrics["sequence_metrics"].update({"engine_boxes" : engine_predictions})
 
         return self.metrics
 
@@ -130,11 +125,18 @@ class EngineEvaluator:
                     frame=None, fake_pred=image.preds_onnx_format
                 )
             else:
-                pil_image = image.load()
+                # Load the image and predict with the Engine
+                pil_image = image.load() # No resize needed as it's done in engine.predict()
                 confidence = self.engine.predict(pil_image)
-                # We store the prediction to be able to load it later
-                # No confidence thresholding should be applied to saved predictions
+
+                # Also predict with prediction_manager to save the predictions
                 self.prediction_manager.predict(images=[image])
+
+            if confidence > self.config["conf_thresh"]:
+                # If the engine raised an alert, we retrieve model predictions a apply post-processing
+                image.engine_prediction = self.prediction_manager.engine_post_process(preds=image.preds_onnx_format)
+            else:
+                image.engine_prediction = []
 
             sequence_results.loc[len(sequence_results)] = [
                 sequence.id,  # sequence_id
@@ -177,6 +179,7 @@ class EngineEvaluator:
 
         finally:
             if self.needs_deletion:
+                # Remove exported onnx model if model_path was originally given as .pt
                 try:
                     os.remove(self.run_model_path)
                 except:
@@ -186,11 +189,6 @@ class EngineEvaluator:
 
         # Final saving of the predictions
         self.prediction_manager.save_predictions()
-
-        if self.save:
-            pred_csv = get_prediction_csv(self.run_id)
-            logging.info(f"Saving predictions in {pred_csv}")
-            self.predictions_df.to_csv(pred_csv, index=False)
 
     def compute_image_level_metrics(self):
         """
