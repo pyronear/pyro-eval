@@ -28,6 +28,8 @@ class ImageManager:
         self.trees = {run_id : {} for run_id in self.run_ids}
         
         for run in self.runs:
+            # TODO : here if tree_info is missing we recompute the Dataset at each changes of the app
+            # This takes a long time and the info should be updated in the json once computed
             self.trees[run.run_id] = {
                 # Recreate an instance of EvaluationDataset as the tree info is a late addition to metrics.json
                 "model" : run.dataset.get("model", {}).get("tree_info") or EvaluationDataset(run.model_datapath).tree_info(),

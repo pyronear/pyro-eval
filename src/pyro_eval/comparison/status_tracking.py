@@ -56,14 +56,14 @@ def create_image_manager(
 ) -> ImageManager:
     return ImageManager(runs=runs)
 
-# If we want to use streamlit cache for create_image manager, we need to have hashable input to the function
+# If we want to use streamlit cache for create_image_manager, we need to have hashable input to the function
 # For that we need to provide a dict version of the run objects...
 # @st.cache_data
 # def create_image_manager(runs_data: List[dict]) -> ImageManager:
 #     runs = [RunData(**data) for data in runs_data]
 #     return ImageManager(runs=runs)
 
-# ... and implement un to_dict() method in RunData
+# ... and implement a to_dict() method in RunData
 #create_image_manager([run.to_dict() for run in runs])
 
 

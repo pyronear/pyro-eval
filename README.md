@@ -271,5 +271,5 @@ In order to compare different evaluation runs, you can use the comparison interf
 The interface is based on a streamlit app and can be launched with:
 
 ```bash
-PYTHONPATH=src streamlit run src/pyro_eval/comparison/status_tracking.py  
+uv run streamlit run src/pyro_eval/comparison/status_tracking.py
 ```
