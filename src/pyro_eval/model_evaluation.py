@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import roc_auc_score, roc_curve
 
 from .dataset import EvaluationDataset
 from .model import Model
@@ -17,7 +17,6 @@ class ModelEvaluator:
         prediction_manager: PredictionManager,
         config: dict = {},
     ):
-
         self.dataset = dataset
         self.model = model
         self.prediction_manager = prediction_manager
@@ -77,17 +76,20 @@ class ModelEvaluator:
             y_true.append(int(has_gt))
             # Predictions - last element of the array is the confidence
             pred_boxes = np.array([pred[:-1] for pred in image.prediction])
-            pred_scores = np.array([pred[-1] for pred in image.prediction])  # confidences
+            pred_scores = np.array(
+                [pred[-1] for pred in image.prediction]
+            )  # confidences
             # Store bboxes
             self.boxes[image.name] = image.prediction
-
             # For ROC: take the highest confidence, or 0 if no prediction
             if len(pred_scores) > 0:
                 y_scores.append(float(np.max(pred_scores)))
             else:
                 y_scores.append(0.0)
 
-            img_fp, img_tp, img_fn = find_matches(gt_boxes, pred_boxes, self.iou_threshold)
+            img_fp, img_tp, img_fn = find_matches(
+                gt_boxes, pred_boxes, self.iou_threshold
+            )
             self.track_predictions(image.name, img_fp, img_tp, img_fn)
 
             nb_fp += img_fp
@@ -99,17 +101,19 @@ class ModelEvaluator:
         )
         fpr, tpr, thresholds = roc_curve(y_true, y_scores)
         auc_score = roc_auc_score(y_true, y_scores)
-        
+
         # Replace np.inf by a high value to be able to dump in a json
         max_threshold = 1e10
-        thresholds = [max_threshold if np.isinf(val) else np.round(val, 5) for val in thresholds]
+        thresholds = [
+            max_threshold if np.isinf(val) else np.round(val, 5) for val in thresholds
+        ]
 
         self.roc_data = {
             "fpr": np.round(fpr, 5).tolist(),
             "tpr": np.round(tpr, 5).tolist(),
             "thresholds": np.round(thresholds, 5).tolist(),
             "auc": auc_score,
-            }
+        }
 
         self.save_roc_curve()
 
@@ -122,8 +126,8 @@ class ModelEvaluator:
             "fn": int(nb_fn),
             "tn": len(self.predictions["tn"]),
             "predictions": self.predictions,
-            "roc_curve" : self.roc_data,
-            "boxes" : self.boxes,
+            "roc_curve": self.roc_data,
+            "boxes": self.boxes,
         }
 
     def save_roc_curve(self) -> None:

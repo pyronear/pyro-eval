@@ -1,10 +1,10 @@
 data/datasets/**/
 data/evaluation/**/
-data/models/**/
-data/models/*.pt
 data/models/*.sha256
 data/models/*.onnx
 data/roc/**/
 credentials/*.json
 __pycache__
 .DS_Store
+figs_tmp/
+pyronear_report.pdf

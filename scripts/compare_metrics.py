@@ -6,8 +6,8 @@ from pathlib import Path
 
 import gspread
 import pandas as pd
-from gspread_dataframe import get_as_dataframe, set_with_dataframe
 from google.oauth2.service_account import Credentials
+from gspread_dataframe import get_as_dataframe, set_with_dataframe
 from oauth2client.service_account import ServiceAccountCredentials
 
 logging.basicConfig(
@@ -15,11 +15,12 @@ logging.basicConfig(
 )
 
 current_dir = os.path.dirname(__file__)
-credentials_path = os.path.abspath(os.path.join(current_dir, '..', 'credentials', 'pyro-metrics-creds.json'))
+credentials_path = os.path.abspath(
+    os.path.join(current_dir, "..", "credentials", "pyro-metrics-creds.json")
+)
 
 sheets_config = {
-
-    "Config" : [
+    "Config": [
         "Run ID",
         "Model Path",
         "Model Dataset ID",
@@ -31,7 +32,7 @@ sheets_config = {
         "Number of images (Engine dataset)",
         "Number of sequences (Engine dataset)",
     ],
-    "Model" : [
+    "Model": [
         "Run ID",
         "Model Precision",
         "Model Recall",
@@ -47,7 +48,7 @@ sheets_config = {
         "Model Dataset Hash",
         "Model Dataset ID",
     ],
-    "Engine" : [
+    "Engine": [
         "Run ID",
         "Sequence Precision",
         "Sequence Recall",
@@ -69,8 +70,9 @@ sheets_config = {
         "Engine Max Bbox Size",
         "Engine Dataset Hash",
         "Engine Dataset ID",
-    ]
+    ],
 }
+
 
 def build_dataframe(run_dirs, csv_path=None):
     rows = []
@@ -93,19 +95,27 @@ def build_dataframe(run_dirs, csv_path=None):
                 "Run ID": data.get("run_id"),
                 "Model Path": config.get("model_path").split("pyro-eval")[-1],
                 "Engine Conf thresh": engine_config.get("conf_thresh"),
-                "Engine Nb consecutive frames": engine_config.get("nb_consecutive_frames"),
+                "Engine Nb consecutive frames": engine_config.get(
+                    "nb_consecutive_frames"
+                ),
                 "Model IoU": model_config.get("iou"),
                 "Model Imgsz": model_config.get("imgsz"),
                 "Model Conf": model_config.get("conf"),
-                "Model Hash" : model_config.get("hash"),
+                "Model Hash": model_config.get("hash"),
                 "Engine Max Bbox Size": engine_config.get("max_bbox_size"),
-                "Engine Dataset Hash" : dataset_info.get("engine", {}).get("hash"),
-                "Engine Dataset ID" : dataset_info.get("engine", {}).get("ID"),
-                "Number of images (Engine dataset)" : dataset_info.get("engine", {}).get("Number of images"),
-                "Number of sequences (Engine dataset)" : dataset_info.get("engine", {}).get("Number of sequences"),
-                "Model Dataset Hash" : dataset_info.get("model", {}).get("hash"),
-                "Model Dataset ID" : dataset_info.get("model", {}).get("ID"),
-                "Number of images (Model dataset)" : dataset_info.get("model", {}).get("Number of images"),
+                "Engine Dataset Hash": dataset_info.get("engine", {}).get("hash"),
+                "Engine Dataset ID": dataset_info.get("engine", {}).get("ID"),
+                "Number of images (Engine dataset)": dataset_info.get("engine", {}).get(
+                    "Number of images"
+                ),
+                "Number of sequences (Engine dataset)": dataset_info.get(
+                    "engine", {}
+                ).get("Number of sequences"),
+                "Model Dataset Hash": dataset_info.get("model", {}).get("hash"),
+                "Model Dataset ID": dataset_info.get("model", {}).get("ID"),
+                "Number of images (Model dataset)": dataset_info.get("model", {}).get(
+                    "Number of images"
+                ),
                 # Model metrics
                 "Model Precision": model_metrics.get("precision"),
                 "Model Recall": model_metrics.get("recall"),
@@ -122,7 +132,7 @@ def build_dataframe(run_dirs, csv_path=None):
                 "Sequence TP": seq_metrics.get("tp"),
                 "Sequence FN": seq_metrics.get("fn"),
                 "Sequence TN": seq_metrics.get("tn"),
-                "Avg Detection Delay" : seq_metrics.get("avg_detection_delay"),
+                "Avg Detection Delay": seq_metrics.get("avg_detection_delay"),
                 "Image Precision": img_metrics.get("precision"),
                 "Image Recall": img_metrics.get("recall"),
                 "Image F1": img_metrics.get("f1"),
@@ -139,7 +149,6 @@ def build_dataframe(run_dirs, csv_path=None):
 
 
 class GoogleSheetExporter:
-
     def __init__(self, spreadsheet_name):
         self.spreadsheet_name = spreadsheet_name
         self.client = self._authenticate()
@@ -150,7 +159,9 @@ class GoogleSheetExporter:
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
         ]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+        creds = ServiceAccountCredentials.from_json_keyfile_name(
+            credentials_path, scope
+        )
         return gspread.authorize(creds)
 
     def _open_spreadsheet(self):
@@ -165,7 +176,9 @@ class GoogleSheetExporter:
             try:
                 worksheet = self.spreadsheet.worksheet(worksheet_name)
             except gspread.exceptions.WorksheetNotFound:
-                worksheet = self.spreadsheet.add_worksheet(title=worksheet_name, rows=200, cols=50)
+                worksheet = self.spreadsheet.add_worksheet(
+                    title=worksheet_name, rows=200, cols=50
+                )
             worksheet.clear()
             set_with_dataframe(worksheet, pd.DataFrame(columns=columns))
             logging.info(f"{worksheet_name} cleared.")
@@ -174,7 +187,9 @@ class GoogleSheetExporter:
         try:
             worksheet = self.spreadsheet.worksheet(worksheet_name)
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = self.spreadsheet.add_worksheet(title=worksheet_name, rows=200, cols=50)
+            worksheet = self.spreadsheet.add_worksheet(
+                title=worksheet_name, rows=200, cols=50
+            )
 
         try:
             existing_df = get_as_dataframe(worksheet).dropna(how="all")
@@ -183,7 +198,9 @@ class GoogleSheetExporter:
             existing_df = pd.DataFrame(columns=new_df.columns)
 
         new_df.loc[:, key_column] = new_df[key_column].astype(str)
-        filtered_existing = existing_df[~existing_df[key_column].isin(new_df[key_column])]
+        filtered_existing = existing_df[
+            ~existing_df[key_column].isin(new_df[key_column])
+        ]
         final_df = pd.concat([filtered_existing, new_df], ignore_index=True)
 
         worksheet.clear()
@@ -191,7 +208,9 @@ class GoogleSheetExporter:
 
         nb_updated = len(existing_df) - len(filtered_existing)
         nb_added = len(final_df) - len(existing_df)
-        logging.info(f"{worksheet_name} updated: {nb_added} added, {nb_updated} updated")
+        logging.info(
+            f"{worksheet_name} updated: {nb_added} added, {nb_updated} updated"
+        )
         return nb_added, nb_updated
 
     def export_dataframe(self, df):
@@ -199,10 +218,11 @@ class GoogleSheetExporter:
         for sheet_name, columns in sheets_config.items():
             self.update_sheet(sheet_name, df[columns])
 
+
 def create_spreadsheet(spreadsheet_name, email_adress=None):
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/drive",
     ]
 
     # Authentification
@@ -216,10 +236,13 @@ def create_spreadsheet(spreadsheet_name, email_adress=None):
 
 
 if __name__ == "__main__":
+    eval_dir = os.path.abspath(os.path.join(current_dir, "..", "data/evaluation"))
 
-    eval_dir = os.path.abspath(os.path.join(current_dir, '..', 'data/evaluation'))
-
-    run_dirs = [run for run in glob(f"{eval_dir}/*") if "run-20250626-13" in run or "run-20250626-14" in run]
+    run_dirs = [
+        run
+        for run in glob(f"{eval_dir}/*")
+        if "run-20250626-13" in run or "run-20250626-14" in run
+    ]
     # run_dirs += [run for run in glob(f"{eval_dir}/*") if "run-20250624-13" in run]
 
     df = build_dataframe(run_dirs, csv_path=None)
@@ -234,4 +257,3 @@ if __name__ == "__main__":
     # Update archive
     archive_exporter = GoogleSheetExporter("Pyro Metrics Archive")
     archive_exporter.export_dataframe(df)
-

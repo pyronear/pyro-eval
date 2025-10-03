@@ -28,7 +28,6 @@ class EvaluationDataset:
     """
 
     def __init__(self, datapath, dataset_ID=None):
-
         self.datapath = datapath
         self.sequences: list[Sequence] = []
         self.is_local: bool = os.path.exists(
@@ -153,7 +152,9 @@ class EvaluationDataset:
                 for _, row in sequence_df.iterrows()
             ]
 
-            self.sequences.append(Sequence(images=custom_images, sequence_number=len(self.sequences)))
+            self.sequences.append(
+                Sequence(images=custom_images, sequence_number=len(self.sequences))
+            )
 
     def determine_sequences(self, image_list, annotations, timestamps, max_delta=30):
         """
@@ -382,23 +383,23 @@ class EvaluationDataset:
         nb_one_img_sequences = stats.get("nb_one_img_sequences", "N/A")
 
         repr_str = (
-            f"+{'-'*48}+\n"
+            f"+{'-' * 48}+\n"
             f"| {'CustomDataset Summary':^46} |\n"
-            f"+{'='*48}+\n"
+            f"+{'=' * 48}+\n"
             f"| Total images                        | {nb_images:>7} |\n"
             f"| Total sequences                     | {total_sequences:>7} |\n"
             f"| Invalid images (invalid naming)     | {self.nb_invalid_images:>7} |\n"
             f"| Number of duplicates                | {len(self.duplicates.keys()):>7} |\n"
-            f"+{'-'*48}+\n"
+            f"+{'-' * 48}+\n"
             f"| Sequences with label=True           | {nb_true_sequences:>7} |\n"
             f"| Sequences with label=False          | {nb_false_sequences:>7} |\n"
             f"| Images with label=True              | {nb_true_images:>7} |\n"
             f"| Images with label=False             | {nb_false_images:>7} |\n"
-            f"+{'-'*48}+\n"
+            f"+{'-' * 48}+\n"
             f"| Avg images/sequence                 | {avg_per_seq:>7.1f} |\n"
             f"| Avg images/sequence (multi only)    | {avg_per_seq_multi:>7.1f} |\n"
             f"| Sequences with only 1 image         | {nb_one_img_sequences:>7} |\n"
-            f"+{'-'*48}+"
+            f"+{'-' * 48}+"
         )
 
         return repr_str
