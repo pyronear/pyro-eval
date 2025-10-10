@@ -264,3 +264,12 @@ The file contains:
 - `image.hash`: image hash
 - `image.label`: boolean label, True if wildfire present False otherwise
 - `image.name`: image name 
+
+## Comparison Interface
+
+In order to compare different evaluation runs, you can use the comparison interface.
+The interface is based on a streamlit app and can be launched with:
+
+```bash
+uv run streamlit run src/pyro_eval/comparison/status_tracking.py
+```

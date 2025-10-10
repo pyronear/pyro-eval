@@ -4,6 +4,7 @@ import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -44,9 +45,7 @@ class EvaluationDataset:
         # Build dataset from Sequence and CustomImage objects
         self.build_dataset()
         self.hash = self.compute_hash()
-        self.dataset_ID = (
-            dataset_ID if dataset_ID else f"dataset_{datetime.now()}_{self.hash[:10]}"
-        )
+        self.dataset_ID = dataset_ID or f"dataset_{datetime.now()}_{self.hash[:10]}"
 
         self.dataframe = self.get_sequence_label()
 
@@ -232,14 +231,7 @@ class EvaluationDataset:
                 ] = sequence.label
         return self.dataframe
 
-    def get_images_from_sequence(self, sequence_id):
-        """
-        Return all images that were captured a the same time
-        """
-        sequence_df = self.dataframe[self.dataframe["sequence_id"] == sequence_id]
-        return sequence_df["image"].tolist()
-
-    def get_all_images(self):
+    def get_all_images(self) -> List[CustomImage]:
         """
         Returns a list of all images in the dataset
         """
@@ -248,11 +240,10 @@ class EvaluationDataset:
             all_images.extend(sequence.images)
         return all_images
 
-    def compute_hash(self):
+    def compute_hash(self) -> str:
         """
         Compute datashet hash based on the concatenation of each image hash.
         This can be used to detect dataset changes and provide identifiers
-        # TODO : add
         """
         hashes = [img.hash for img in self.get_all_images()]
         combined = "".join(hashes).encode("utf-8")
@@ -289,19 +280,15 @@ class EvaluationDataset:
 
         return True
 
-    def add_sequence(self, sequence: Sequence):
-        self.sequences.append(sequence)
-
     def dump(self, path=None):
-        output_csv = (
-            path
-            if path
-            else os.path.join(self.datapath, f"{os.path.basename(self.datapath)}.csv")
-        )
+        """
+        Saves dataset dataframe in a csv
+        """
+        output_csv = path or os.path.join(self.datapath, f"{os.path.basename(self.datapath)}.csv")
         self.dataframe.to_csv(output_csv, index=False)
         logging.info(f"DataFrame saved in {output_csv}")
 
-    def compute_dataset_statistics(self):
+    def compute_dataset_statistics(self) -> Dict:
         """
         Computes stastistics on the dataset built
         """
@@ -353,6 +340,14 @@ class EvaluationDataset:
         )
         plt.title("Sequence length distribution")
         plt.show()
+
+    def tree_info(self) -> Dict[str, List[str]]:
+        tree_info = {}
+        for seq in self.sequences:
+            tree_info[seq.id] = [
+                os.path.relpath(image.path, self.datapath) for image in seq.images
+            ]
+        return tree_info
 
     def __len__(self):
         return len(self.dataframe)

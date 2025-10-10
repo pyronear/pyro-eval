@@ -7,10 +7,12 @@ requires-python = ">=3.9,<4.0"
 readme = "README.md"
 dependencies = [
     "datasets",
+    "reolink_api_client",
     "matplotlib==3.9.0",
     "onnx==1.17.0",
     "onnxruntime==1.18.1",
     "pandas==2.2.3",
+    "plotly==6.2.0",
     "pyroengine",
     "scikit-learn==1.6.1",
     "streamlit==1.45.0",
@@ -24,7 +26,6 @@ dependencies = [
     "ncnn>=1.0.20250503",
 ]
 
-[dependency-groups]
 dev = [
  "pytest>=5.3.2,<6",
  "dvc",
@@ -41,3 +42,4 @@ build-backend = "hatchling.build"
 [tool.uv.sources]
 pyroengine = { git = "https://github.com/pyronear/pyro-engine.git", branch = "main" }
 pyroclient = { git = "https://github.com/pyronear/pyro-api.git", subdirectory = "client", rev = "main" }
+reolink_api_client = { git = "https://github.com/pyronear/pyro-engine.git", branch = "develop", subdirectory = "reolink_api/client" }

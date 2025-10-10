@@ -27,6 +27,7 @@ class CustomImage:
     prediction: Optional[str] = field(
         default=None
     )  # Formatted as a 5-array of predictions [[boxes.xyxyn, conf]]
+    engine_prediction : Optional[np.ndarray] = field(default=None) # Post-processed predictions (filtered [[boxes.xyxyn, conf]])
     image_size = (1024, 1024)
 
     def __post_init__(self):
@@ -112,11 +113,6 @@ class CustomImage:
 
         return onnx_predictions
 
-    def resize(self):
-        """
-        Resize to target size and apply letterbox algorithm
-        """
-
 
 class Sequence:
     """
@@ -155,9 +151,6 @@ class Sequence:
         date = parsing["date"].strftime("%Y-%m-%dT%H-%M-%S")
         sequence_number = self.sequence_number or ""
         return date + parsing["prefix"] + str(sequence_number)
-
-    def add_image(self, image_path, sequence_id, timedelta, label):
-        self.images.append(CustomImage(image_path, sequence_id, timedelta, label))
 
     def __len__(self):
         return len(self.images)
